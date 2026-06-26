@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;height:100%;}
+  *{box-sizing:border-box;}
+  input{font-family:inherit;}
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:8px;}
+  @keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
+  @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+</style>
+</helmet>
+<div style="position:relative;width:100vw;height:100vh;overflow:hidden;font-family:'Noto Sans JP',sans-serif;background:#e8edf2;color:#0f172a;">
+
+  <!-- ===================== MAP ===================== -->
+  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">
+    <defs>
+      <filter id="pinShadow" x="-60%" y="-60%" width="220%" height="220%">
+        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.32"></feDropShadow>
+      </filter>
+    </defs>
+
+    <rect x="0" y="0" width="1440" height="900" fill="#e8edf2"></rect>
+
+    <!-- parks -->
+    <g fill="#d2e7cd">
+      <rect x="90" y="120" width="190" height="150" rx="14"></rect>
+      <rect x="1115" y="540" width="240" height="230" rx="20"></rect>
+      <rect x="600" y="700" width="190" height="150" rx="16"></rect>
+      <rect x="905" y="60" width="160" height="115" rx="14"></rect>
+    </g>
+
+    <!-- road casings -->
+    <g fill="none" stroke="#d6dde6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M-20 320 Q 400 300 760 330 T 1460 300" stroke-width="25"></path>
+      <path d="M240 920 L 560 -20" stroke-width="25"></path>
+      <path d="M1180 -20 L 1080 940" stroke-width="25"></path>
+      <path d="M-20 645 Q 520 665 1460 600" stroke-width="25"></path>
+      <path d="M-20 180 L1460 150" stroke-width="11"></path>
+      <path d="M-20 485 L1460 465" stroke-width="11"></path>
+      <path d="M-20 770 L1460 805" stroke-width="11"></path>
+      <path d="M120 -20 L 60 940" stroke-width="11"></path>
+      <path d="M420 -20 L 360 940" stroke-width="11"></path>
+      <path d="M720 -20 L 700 940" stroke-width="11"></path>
+      <path d="M980 -20 L 940 940" stroke-width="11"></path>
+      <path d="M1300 -20 L 1340 940" stroke-width="11"></path>
+      <path d="M0 905 L 520 505" stroke-width="11"></path>
+      <path d="M1460 5 L 905 545" stroke-width="11"></path>
+    </g>
+    <!-- road surfaces -->
+    <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M-20 320 Q 400 300 760 330 T 1460 300" stroke-width="17"></path>
+      <path d="M240 920 L 560 -20" stroke-width="17"></path>
+      <path d="M1180 -20 L 1080 940" stroke-width="17"></path>
+      <path d="M-20 645 Q 520 665 1460 600" stroke-width="17"></path>
+      <path d="M-20 180 L1460 150" stroke-width="6"></path>
+      <path d="M-20 485 L1460 465" stroke-width="6"></path>
+      <path d="M-20 770 L1460 805" stroke-width="6"></path>
+      <path d="M120 -20 L 60 940" stroke-width="6"></path>
+      <path d="M420 -20 L 360 940" stroke-width="6"></path>
+      <path d="M720 -20 L 700 940" stroke-width="6"></path>
+      <path d="M980 -20 L 940 940" stroke-width="6"></path>
+      <path d="M1300 -20 L 1340 940" stroke-width="6"></path>
+      <path d="M0 905 L 520 505" stroke-width="6"></path>
+      <path d="M1460 5 L 905 545" stroke-width="6"></path>
+    </g>
+
+    <!-- ===== route + markers + hazard pins (hidden on landing) ===== -->
+    <g style="opacity:{{ routeOpacity }};transition:opacity .4s ease;pointer-events:{{ routePE }};">
+      <path d="M280 742 L338 602 L470 560 L542 470 L690 430 L742 322 L840 282 L960 212" fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path d="M280 742 L338 602 L470 560 L542 470 L690 430 L742 322 L840 282 L960 212" fill="none" stroke="{{ routeColor }}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>
+
+      <!-- A marker (start) -->
+      <g transform="translate(280,742)" filter="url(#pinShadow)">
+        <path d="M0 0 C -12 -18 -18 -26 -18 -38 A18 18 0 1 1 18 -38 C18 -26 12 -18 0 0 Z" fill="#16a34a"></path>
+        <circle cx="0" cy="-38" r="11" fill="#ffffff"></circle>
+        <text x="0" y="-38" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="700" fill="#16a34a">A</text>
+      </g>
+      <!-- B marker (end) -->
+      <g transform="translate(960,212)" filter="url(#pinShadow)">
+        <path d="M0 0 C -12 -18 -18 -26 -18 -38 A18 18 0 1 1 18 -38 C18 -26 12 -18 0 0 Z" fill="#ef4444"></path>
+        <circle cx="0" cy="-38" r="11" fill="#ffffff"></circle>
+        <text x="0" y="-38" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="700" fill="#ef4444">B</text>
+      </g>
+
+      <!-- hazard pins -->
+      <sc-for list="{{ pins }}" as="p" hint-placeholder-count="3">
+        <g transform="{{ p.transform }}" style="cursor:pointer;transition:transform .18s ease;" onClick="{{ p.onClick }}" filter="url(#pinShadow)">
+          <circle r="21" fill="#ffffff"></circle>
+          <circle r="17" fill="{{ p.fill }}"></circle>
+          <circle r="24" fill="none" stroke="{{ p.ringStroke }}" stroke-width="3" opacity="{{ p.ringOpacity }}"></circle>
+          <text x="0" y="0" text-anchor="middle" dominant-baseline="central" font-size="18" font-weight="900" fill="{{ p.numColor }}">{{ p.num }}</text>
+        </g>
+      </sc-for>
+    </g>
+  </svg>
+
+  <!-- ===================== SEARCH CARD (top-left) ===================== -->
+  <div style="position:absolute;top:16px;left:16px;width:360px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.15);padding:16px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2 L20 5 V11 C20 16 16.5 20 12 22 C7.5 20 4 16 4 11 V5 Z" fill="#2563eb"></path><path d="M8.5 12 L11 14.5 L15.5 9.5" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+      <span style="font-size:18px;font-weight:700;letter-spacing:-.01em;">通学路安全マップ</span>
+    </div>
+
+    <div style="position:relative;display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;gap:10px;height:44px;background:#f1f5f9;border-radius:10px;padding:0 12px;">
+        <span style="width:11px;height:11px;border-radius:50%;background:#16a34a;flex:none;box-shadow:0 0 0 3px #16a34a22;"></span>
+        <input value="{{ origin }}" onInput="{{ onOrigin }}" placeholder="出発地を入力" style="flex:1;border:0;background:transparent;outline:none;font-size:14px;color:#0f172a;"/>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;height:44px;background:#f1f5f9;border-radius:10px;padding:0 12px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" style="flex:none;"><path d="M12 2 C7.6 2 4 5.6 4 10 C4 16 12 22 12 22 C12 22 20 16 20 10 C20 5.6 16.4 2 12 2 Z" fill="#ef4444"></path><circle cx="12" cy="10" r="3" fill="#fff"></circle></svg>
+        <input value="{{ dest }}" onInput="{{ onDest }}" placeholder="目的地を入力" style="flex:1;border:0;background:transparent;outline:none;font-size:14px;color:#0f172a;"/>
+      </div>
+      <button onClick="{{ onSwap }}" title="入れ替え" style="position:absolute;right:10px;top:33px;width:28px;height:28px;border-radius:50%;border:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 V20 M7 4 L3.5 7.5 M7 4 L10.5 7.5"></path><path d="M17 20 V4 M17 20 L13.5 16.5 M17 20 L20.5 16.5"></path></svg>
+      </button>
+    </div>
+
+    <button onClick="{{ goToRoute }}" style="margin-top:12px;width:100%;height:46px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 8px rgba(37,99,235,.35);">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21 L16 16"></path></svg>
+      ルートを検索
+    </button>
+  </div>
+
+  <!-- ===================== RESULT SUMMARY CARD ===================== -->
+  <sc-if value="{{ isRoute }}">
+    <div style="position:absolute;top:240px;left:16px;width:360px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.15);padding:14px 16px;animation:fadeIn .3s ease;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#94a3b8;margin-bottom:10px;">ルート情報</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;align-items:center;gap:6px;background:#f1f5f9;border-radius:8px;padding:7px 11px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="2"></circle><path d="M11 8 L9 12 L6 14 M11 8 L14 11 L13 16 L16 21 M13 16 L9 21"></path></svg>
+          <span style="font-size:15px;font-weight:700;">1.2<span style="font-size:12px;font-weight:500;color:#64748b;">km</span></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;background:#f1f5f9;border-radius:8px;padding:7px 11px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7 V12 L15 14"></path></svg>
+          <span style="font-size:15px;font-weight:700;">約15<span style="font-size:12px;font-weight:500;color:#64748b;">分</span></span>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:6px;background:#fee2e2;border-radius:8px;padding:7px 11px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L22 20 H2 Z"></path><path d="M12 10 V14 M12 17 v.01"></path></svg>
+          <span style="font-size:13px;font-weight:700;color:#dc2626;">危険箇所 3件</span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== HAZARD LIST PANEL (right) ===================== -->
+  <sc-if value="{{ isRoute }}">
+    <div style="position:absolute;top:16px;right:16px;bottom:16px;width:320px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.15);display:flex;flex-direction:column;overflow:hidden;animation:fadeIn .3s ease;">
+      <div style="padding:16px 18px 12px;border-bottom:1px solid #eef2f6;display:flex;align-items:baseline;gap:8px;">
+        <span style="font-size:16px;font-weight:700;">危険箇所一覧</span>
+        <span style="font-size:13px;font-weight:700;color:#dc2626;background:#fee2e2;border-radius:20px;padding:2px 10px;">3件</span>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;">
+        <sc-for list="{{ list }}" as="h" hint-placeholder-count="3">
+          <div onClick="{{ h.onClick }}" style="cursor:pointer;background:{{ h.bg }};border:1px solid {{ h.borderCol }};border-left:5px solid {{ h.accent }};border-radius:10px;padding:12px 13px;transition:background .15s ease;">
+            <div style="display:flex;align-items:center;gap:11px;">
+              <div style="flex:none;width:34px;height:34px;border-radius:50%;background:{{ h.accent }};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:{{ h.numColor }};">{{ h.score }}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:700;line-height:1.3;">{{ h.title }}</div>
+                <div style="font-size:11px;color:#94a3b8;margin-top:2px;">{{ h.dist }}</div>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M9 6 L15 12 L9 18"></path></svg>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">
+              <sc-for list="{{ h.tags }}" as="t" hint-placeholder-count="2">
+                <span style="font-size:11px;font-weight:600;color:#475569;background:#f1f5f9;border-radius:6px;padding:3px 9px;">{{ t }}</span>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== BOTTOM PILL (landing) ===================== -->
+  <sc-if value="{{ isLanding }}">
+    <div style="position:absolute;bottom:24px;left:50%;transform:translateX(-50%);background:#fff;border-radius:24px;box-shadow:0 4px 24px rgba(0,0,0,0.15);padding:10px 18px;display:flex;align-items:center;gap:9px;animation:fadeIn .3s ease;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 C7.6 2 4 5.6 4 10 C4 16 12 22 12 22 C12 22 20 16 20 10 C20 5.6 16.4 2 12 2 Z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+      <span style="font-size:13px;font-weight:500;color:#64748b;">地図をクリックして地点を指定できます</span>
+    </div>
+  </sc-if>
+
+  <!-- ===================== HAZARD DETAIL MODAL ===================== -->
+  <sc-if value="{{ hasModal }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(15,23,42,0.45);display:flex;align-items:center;justify-content:center;z-index:50;animation:fadeIn .2s ease;">
+      <div onClick="{{ stop }}" style="width:480px;max-width:calc(100vw - 32px);background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.35);overflow:hidden;animation:modalIn .25s ease;">
+        <div style="height:8px;background:{{ modal.color }};"></div>
+        <div style="padding:24px 26px 22px;position:relative;">
+          <button onClick="{{ closeModal }}" style="position:absolute;top:18px;right:18px;width:32px;height:32px;border-radius:50%;border:0;background:#f1f5f9;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.4" stroke-linecap="round"><path d="M6 6 L18 18 M18 6 L6 18"></path></svg>
+          </button>
+
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:#94a3b8;">危険度</div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:6px;">
+            <span style="font-size:52px;font-weight:900;line-height:1;color:{{ modal.color }};">{{ modal.score }}</span>
+            <div style="display:flex;gap:6px;">
+              <sc-for list="{{ modal.circles }}" as="c" hint-placeholder-count="5">
+                <span style="width:16px;height:16px;border-radius:50%;background:{{ c.fill }};"></span>
+              </sc-for>
+            </div>
+          </div>
+          <div style="font-size:19px;font-weight:700;margin-top:14px;">{{ modal.title }}</div>
+
+          <div style="font-size:12px;font-weight:700;color:#64748b;margin-top:20px;margin-bottom:9px;">危険要因</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <sc-for list="{{ modal.factors }}" as="f" hint-placeholder-count="3">
+              <span style="font-size:13px;font-weight:600;color:{{ modal.color }};background:{{ modal.tint }};border-radius:8px;padding:6px 12px;">{{ f }}</span>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ showAccidentData }}">
+            <div style="font-size:12px;font-weight:700;color:#64748b;margin-top:20px;margin-bottom:9px;">事故データ</div>
+            <div style="display:flex;align-items:center;gap:10px;background:#f8fafc;border-radius:10px;padding:12px 14px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M12 3 L22 20 H2 Z"></path><path d="M12 10 V14 M12 17 v.01"></path></svg>
+              <span style="font-size:14px;font-weight:600;color:#334155;">{{ modal.accidentText }}</span>
+            </div>
+          </sc-if>
+
+          <div style="font-size:12px;font-weight:700;color:#64748b;margin-top:20px;margin-bottom:9px;">道路情報</div>
+          <div style="display:flex;flex-direction:column;border:1px solid #eef2f6;border-radius:10px;overflow:hidden;">
+            <div style="display:flex;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #eef2f6;">
+              <span style="font-size:13px;color:#64748b;">道路種別</span>
+              <span style="font-size:13px;font-weight:700;">{{ modal.roadType }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:11px 14px;">
+              <span style="font-size:13px;color:#64748b;">歩道</span>
+              <span style="font-size:13px;font-weight:700;">{{ modal.sidewalk }}</span>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:24px;">
+            <button onClick="{{ closeModal }}" style="flex:1;height:46px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#475569;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">閉じる</button>
+            <button onClick="{{ confirmOnMap }}" style="flex:1;height:46px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.35);">地図で確認</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;landing&quot;,&quot;route&quot;],&quot;default&quot;:&quot;landing&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;showAccidentData&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;routeColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#4d6d26&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { screen: null, origin: '', dest: '', selectedId: null, modalId: null };
+
+  data() {
+    return [
+      { id:'h1', score:5, color:'#ef4444', tint:'#fee2e2', numColor:'#ffffff',
+        title:'本河内交差点', tags:['歩道なし','事故多発'], dist:'出発から350m', x:470, y:560,
+        factors:['歩道なし','過去事故3件','幹線道路との交差'], accidentText:'過去5年間で3件の交通事故',
+        roadType:'幹線道路', sidewalk:'なし' },
+      { id:'h2', score:3, color:'#f97316', tint:'#ffedd5', numColor:'#ffffff',
+        title:'桜町歩道橋前', tags:['見通し不良','横断多い'], dist:'出発から720m', x:690, y:430,
+        factors:['見通し不良','横断歩道の間隔が広い'], accidentText:'過去5年間で1件の交通事故',
+        roadType:'補助幹線道路', sidewalk:'片側のみ' },
+      { id:'h3', score:2, color:'#eab308', tint:'#fef3c7', numColor:'#422006',
+        title:'栄町2丁目角', tags:['生活道路','車両通行'], dist:'出発から980m', x:840, y:282,
+        factors:['車両の通行が多い'], accidentText:'過去5年間の事故報告なし',
+        roadType:'生活道路', sidewalk:'あり' },
+    ];
+  }
+
+  screen() { return this.state.screen ?? (this.props.startScreen || 'landing'); }
+
+  goToRoute = () => {
+    this.setState(s => ({
+      screen: 'route',
+      origin: s.origin || '長崎市立〇〇小学校',
+      dest: s.dest || '〇〇町1-2-3',
+    }));
+  };
+  onSwap = () => this.setState(s => ({ origin: s.dest, dest: s.origin }));
+  selectHazard = (id) => this.setState({ selectedId: id });
+  openModal = (id) => this.setState({ selectedId: id, modalId: id });
+  closeModal = () => this.setState({ modalId: null });
+  confirmOnMap = () => this.setState({ modalId: null });
+
+  renderVals() {
+    const hz = this.data();
+    const sel = this.state.selectedId;
+    const isRoute = this.screen() === 'route';
+    const routeColor = this.props.routeColor || '#2563eb';
+
+    const pins = hz.map(h => ({
+      num: String(h.score), fill: h.color, numColor: h.numColor,
+      transform: `translate(${h.x},${h.y}) scale(${sel === h.id ? 1.18 : 1})`,
+      ringStroke: h.color, ringOpacity: sel === h.id ? 1 : 0,
+      onClick: () => this.openModal(h.id),
+    }));
+
+    const list = hz.map(h => ({
+      score: String(h.score), title: h.title, dist: h.dist, tags: h.tags,
+      accent: h.color, numColor: h.numColor,
+      bg: sel === h.id ? '#eff4ff' : '#ffffff',
+      borderCol: sel === h.id ? '#bfd3ff' : '#eef2f6',
+      onClick: () => this.openModal(h.id),
+    }));
+
+    const mh = hz.find(h => h.id === this.state.modalId) || null;
+    const modal = mh ? {
+      score: String(mh.score), color: mh.color, tint: mh.tint,
+      title: mh.title + '付近', factors: mh.factors,
+      accidentText: mh.accidentText, roadType: mh.roadType, sidewalk: mh.sidewalk,
+      circles: Array.from({ length: 5 }, (_, i) => ({ fill: i < mh.score ? mh.color : '#e5e7eb' })),
+    } : null;
+
+    return {
+      isRoute, isLanding: !isRoute,
+      routeOpacity: isRoute ? 1 : 0, routePE: isRoute ? 'auto' : 'none',
+      routeColor,
+      origin: this.state.origin, dest: this.state.dest,
+      onOrigin: (e) => this.setState({ origin: e.target.value }),
+      onDest: (e) => this.setState({ dest: e.target.value }),
+      onSwap: this.onSwap, goToRoute: this.goToRoute,
+      pins, list,
+      hasModal: !!mh, modal,
+      showAccidentData: this.props.showAccidentData !== false,
+      closeModal: this.closeModal, confirmOnMap: this.confirmOnMap,
+      stop: (e) => e.stopPropagation(),
+    };
+  }
+}
+</script>
+</body>
+</html>
