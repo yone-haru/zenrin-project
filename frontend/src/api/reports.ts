@@ -20,6 +20,11 @@ export interface UploadReportParams {
   images: File[]
 }
 
+async function parseErrorDetail(response: Response, fallback: string): Promise<string> {
+  const body = await response.json().catch(() => null)
+  return (body && typeof body.detail === 'string' && body.detail) || fallback
+}
+
 export async function uploadReport(params: UploadReportParams): Promise<Report> {
   const formData = new FormData()
   formData.append('latitude', String(params.latitude))
@@ -37,8 +42,7 @@ export async function uploadReport(params: UploadReportParams): Promise<Report> 
   })
 
   if (!response.ok) {
-    const body = await response.json().catch(() => null)
-    throw new Error(body?.detail ?? 'アップロードに失敗しました')
+    throw new Error(await parseErrorDetail(response, '投稿に失敗しました'))
   }
 
   return response.json()
@@ -48,7 +52,7 @@ export async function fetchReports(): Promise<Report[]> {
   const response = await fetch(`${API_BASE_URL}/api/reports`)
 
   if (!response.ok) {
-    throw new Error('地点情報の取得に失敗しました')
+    throw new Error(await parseErrorDetail(response, '地点情報の取得に失敗しました'))
   }
 
   return response.json()

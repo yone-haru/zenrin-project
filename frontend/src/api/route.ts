@@ -1,33 +1,6 @@
 import { API_BASE_URL } from './reports'
 import type { Report } from './reports'
 
-export interface GeocodeResult {
-  name: string
-  latitude: number
-  longitude: number
-}
-
-export interface RoutePoint {
-  latitude: number
-  longitude: number
-}
-
-export interface RouteResult {
-  points: RoutePoint[]
-  distance_m: number
-  duration_s: number
-}
-
-export interface RouteDangerReport {
-  report: Report
-  distance_from_route_m: number
-}
-
-export interface RouteSearchResult {
-  route: RouteResult
-  danger_reports: RouteDangerReport[]
-}
-
 export interface AddressPoint {
   lat: number
   lng: number
@@ -46,6 +19,11 @@ export interface HazardPoint {
   distance_from_origin_m?: number | null
 }
 
+export interface RouteDangerReport {
+  report: Report
+  distance_from_route_m: number
+}
+
 export interface RouteResponse {
   route_geometry: {
     type: 'LineString'
@@ -54,56 +32,29 @@ export interface RouteResponse {
   distance_m: number
   duration_s: number
   hazard_points: HazardPoint[]
+  danger_reports: RouteDangerReport[]
 }
 
-export interface GeocodeAddressResult {
+export interface GeocodeResult {
+  name: string
   lat: number
   lng: number
-  display_name: string
 }
 
-export async function geocode(query: string): Promise<GeocodeResult[]> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/route/geocode?query=${encodeURIComponent(query)}`,
-  )
+async function parseErrorDetail(response: Response, fallback: string): Promise<string> {
+  const body = await response.json().catch(() => null)
+  return (body && typeof body.detail === 'string' && body.detail) || fallback
+}
+
+export async function geocode(query: string, limit = 5): Promise<GeocodeResult[]> {
+  const trimmed = query.trim()
+  if (!trimmed) return []
+
+  const params = new URLSearchParams({ q: trimmed, limit: String(limit) })
+  const response = await fetch(`${API_BASE_URL}/api/geocode?${params.toString()}`)
 
   if (!response.ok) {
-    throw new Error('地点検索に失敗しました')
-  }
-
-  return response.json()
-}
-
-export interface SearchRouteParams {
-  fromLat: number
-  fromLng: number
-  toLat: number
-  toLng: number
-}
-
-export async function searchRoute(params: SearchRouteParams): Promise<RouteSearchResult> {
-  const query = new URLSearchParams({
-    from_lat: String(params.fromLat),
-    from_lng: String(params.fromLng),
-    to_lat: String(params.toLat),
-    to_lng: String(params.toLng),
-  })
-
-  const response = await fetch(`${API_BASE_URL}/api/route/search?${query}`)
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => null)
-    throw new Error(body?.detail ?? 'ルート検索に失敗しました')
-  }
-
-  return response.json()
-}
-
-export async function geocodeAddress(query: string): Promise<GeocodeAddressResult> {
-  const response = await fetch(`${API_BASE_URL}/api/geocode?q=${encodeURIComponent(query)}`)
-
-  if (!response.ok) {
-    throw new Error('地点検索に失敗しました')
+    throw new Error(await parseErrorDetail(response, '地点検索に失敗しました'))
   }
 
   return response.json()
@@ -117,8 +68,7 @@ export async function createRoute(origin: AddressPoint, destination: AddressPoin
   })
 
   if (!response.ok) {
-    const body = await response.json().catch(() => null)
-    throw new Error(body?.detail ?? 'ルート検索に失敗しました')
+    throw new Error(await parseErrorDetail(response, 'ルート検索に失敗しました'))
   }
 
   return response.json()
