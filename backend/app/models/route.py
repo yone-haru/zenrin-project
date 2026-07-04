@@ -25,11 +25,6 @@ class RouteDangerReport(BaseModel):
     distance_from_route_m: float
 
 
-class RouteSearchResult(BaseModel):
-    route: RouteResult
-    danger_reports: list[RouteDangerReport]
-
-
 class RouteLocation(BaseModel):
     lat: float
     lng: float
@@ -63,9 +58,10 @@ class RouteResponse(BaseModel):
     distance_m: float
     duration_s: float
     hazard_points: list[HazardPoint]
+    danger_reports: list[RouteDangerReport]
 
 
-class GeocodeResponse(BaseModel):
+class GeocodeItem(BaseModel):
+    name: str
     lat: float
     lng: float
-    display_name: str

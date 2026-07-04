@@ -1,36 +1,26 @@
 import json
 import math
-from pathlib import Path
+import threading
 from uuid import UUID
 
-from app.core.config import settings
+from app.core.database import get_connection
 
-VECTOR_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
-VECTOR_FILE = VECTOR_DATA_DIR / "vectors.json"
-
-
-def _ensure_file() -> None:
-    VECTOR_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    if not VECTOR_FILE.exists():
-        VECTOR_FILE.write_text("[]", encoding="utf-8")
+_write_lock = threading.Lock()
 
 
 def index_report(report_id: UUID, text: str, vector: list[float]) -> None:
-    """テキスト記述とベクトルを検索用ストアに登録する。
-
-    Azure AI Searchの認証情報が未設定の間は、ローカルJSONファイルに追記するスタブとする。
-    認証情報を設定後、実際のAzure AI Search登録処理に差し替える。
-    """
-    if not settings.azure_search_api_key:
-        _ensure_file()
-        records = json.loads(VECTOR_FILE.read_text(encoding="utf-8"))
-        records.append({"report_id": str(report_id), "text": text, "vector": vector})
-        VECTOR_FILE.write_text(
-            json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8"
+    """テキスト記述とベクトルをローカルSQLiteの検索用ストアに登録する。"""
+    conn = get_connection()
+    with _write_lock:
+        conn.execute(
+            """
+            INSERT INTO vectors (report_id, text, vector)
+            VALUES (?, ?, ?)
+            ON CONFLICT(report_id) DO UPDATE SET text=excluded.text, vector=excluded.vector
+            """,
+            (str(report_id), text, json.dumps(vector)),
         )
-        return
-
-    raise NotImplementedError("Azure AI Search連携は未実装です")
+        conn.commit()
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -44,17 +34,18 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 
 def find_similar_report_ids(report_id: UUID, limit: int = 5) -> list[tuple[UUID, float]]:
     """指定した投稿に近い危険パターンを持つ投稿を、ベクトル類似度の高い順に返す。"""
-    _ensure_file()
-    vectors = json.loads(VECTOR_FILE.read_text(encoding="utf-8"))
+    conn = get_connection()
+    rows = conn.execute("SELECT report_id, vector FROM vectors").fetchall()
 
-    target = next((v for v in vectors if v["report_id"] == str(report_id)), None)
+    vectors = {row["report_id"]: json.loads(row["vector"]) for row in rows}
+    target = vectors.get(str(report_id))
     if target is None:
         return []
 
     scored = [
-        (UUID(v["report_id"]), _cosine_similarity(target["vector"], v["vector"]))
-        for v in vectors
-        if v["report_id"] != str(report_id)
+        (UUID(rid), _cosine_similarity(target, vec))
+        for rid, vec in vectors.items()
+        if rid != str(report_id)
     ]
     scored.sort(key=lambda item: item[1], reverse=True)
     return scored[:limit]

@@ -6,11 +6,11 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from app.core.geo import haversine_distance_m
 from app.core.storage import load_reports, save_reports
 from app.models.report import Report, SimilarReport
-from app.services.embedding_service import generate_embedding
-from app.services.image_storage import ALLOWED_CONTENT_TYPES, save_images, url_to_path
+from app.services.embedding_service import generate_embedding_async
+from app.services.image_storage import ImageValidationError, save_images, url_to_path, validate_images
 from app.services.scoring_service import aggregate_nearby_scores, calculate_risk_score
 from app.services.search_service import find_similar_report_ids, index_report
-from app.services.vision_service import analyze_image
+from app.services.vision_service import analyze_image_async
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -65,22 +65,16 @@ async def create_report(
     images: Annotated[list[UploadFile], File()],
     comment: Annotated[str | None, Form()] = None,
 ) -> Report:
-    if not images:
-        raise HTTPException(status_code=400, detail="画像を1枚以上添付してください")
+    try:
+        validate_images(images)
+        report_id = uuid4()
+        image_urls = save_images(str(report_id), images)
+    except ImageValidationError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
-    for image in images:
-        if image.content_type not in ALLOWED_CONTENT_TYPES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"対応していないファイル形式です: {image.content_type}",
-            )
-
-    report_id = uuid4()
-    image_urls = save_images(str(report_id), images)
-
-    descriptions = [analyze_image(url_to_path(url)) for url in image_urls]
+    descriptions = [await analyze_image_async(url_to_path(url)) for url in image_urls]
     description_ai = " / ".join(descriptions)
-    vector = generate_embedding(description_ai)
+    vector = await generate_embedding_async(description_ai)
     index_report(report_id, description_ai, vector)
 
     risk_score = calculate_risk_score(description_ai)

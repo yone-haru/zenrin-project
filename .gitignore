@@ -21,9 +21,15 @@ __pycache__/
 venv/
 *.egg-info/
 
-# backend uploaded data
+# backend uploaded data (accidents.csv はコミット対象なので backend/data/ 全体は無視しない)
 backend/uploads/
-backend/data/
+backend/data/raw/
+backend/data/app.db*
+backend/data/*.json
+backend/data/*.migrated
+backend/.pytest_cache/
+backend/*.log
+*.log
 
 # Editor
 .vscode/

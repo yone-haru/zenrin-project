@@ -3,7 +3,11 @@ __pycache__/
 *.pyc
 .env
 .env.local
-data/
+# data/ は accidents.csv をイメージに含めるため丸ごと除外しない
+data/raw/
+data/app.db*
+data/*.json
+data/*.migrated
 uploads/
 tests/
 .pytest_cache/
