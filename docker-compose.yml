@@ -1,30 +1,37 @@
+# 本番構成: frontend(nginx) が :80 で配信し、/api・/uploads を backend へリバースプロキシする。
+# 開発は Docker を使わず README の手順（uvicorn --reload / npm run dev）で行う。
 name: zenrin-school-route-safety
 
 services:
   backend:
     build:
       context: ./backend
-    ports:
-      - "8000:8000"
     env_file:
       - ./backend/.env
     volumes:
-      - ./backend:/app
+      - backend-data:/app/data
+      - backend-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
+      args:
+        # nginxプロキシ経由の同一オリジンで叩くため空文字（相対パス）
+        VITE_API_BASE_URL: ""
     ports:
-      - "5173:5173"
-    env_file:
-      - ./frontend/.env
-    volumes:
-      - ./frontend:/app
-      - frontend-node-modules:/app/node_modules
+      - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
-  frontend-node-modules:
+  backend-data:
+  backend-uploads:
