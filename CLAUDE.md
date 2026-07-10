@@ -27,13 +27,13 @@ npm run lint       # lint
 ```
 backend/app/
 ├── api/        # ルーター（route.py=ルート検索+危険解析, reports.py=写真通報）
-├── services/   # 外部API・解析パイプライン（hazard_analysis が中核）
+├── services/   # 外部API・解析パイプライン（hazard_analysis が中核、safety_score=採点）
 ├── core/       # config / database / http（共有クライアント・リトライ）
 └── scripts/    # preprocess_accidents.py（警察庁CSV→accidents.csv 変換）
 frontend/src/
-├── components/ # MapView / SearchPanel / HazardPanel / HazardModal / ReportForm 等
+├── components/ # MapView / SearchPanel / RouteCards（ルート比較）/ HazardPanel / AdminPanel 等
 ├── hooks/      # useRoute / useGeocode（デバウンスサジェスト）
-└── api/        # APIクライアント（契約は .claude/plan.md 参照）
+└── api/        # APIクライアント（契約v3は .claude/plan.md 参照。/api/route は routes配列を返す）
 ```
 
 ## ハマりどころ・既知の問題（随時追記・消さない）
@@ -41,7 +41,8 @@ frontend/src/
 - OSRMデモサーバの duration は車速のため、footプロファイル時はバックエンドが 80m/分 で徒歩時間を再計算して返す（routing_service.py）
 - Nominatim は 1リクエスト/秒 制限。バックエンドでレート制御＋キャッシュ済みなので、フロントから直接叩かないこと
 - Nominatim は日本語の部分一致に弱い（「伊良林小学校」は0件、「長崎市立伊良林小学校」「長崎駅」はヒット）。`NOMINATIM_COUNTRY_CODES=jp` で国外の誤ヒットは抑制済み。根本解決はゼンリンAPI差し替え時
-- Overpass はルートごとに bbox で1回だけクエリする設計。per-point クエリに戻すと即レート制限に当たる
+- Overpass は1検索（全代替ルートの合成bbox）で1回だけクエリする設計。per-route/per-point クエリに戻すと即レート制限に当たる
+- 通報管理APIは `ADMIN_TOKEN` 未設定だと常に401（意図した挙動）。管理パネルはURLに `?admin=1` を付けたときだけ表示
 - hazard_analysis のクラスタ統合半径（120m）はサンプリング間隔（50m）より大きくすること。40mにすると隣接サンプルが統合されずピンだらけになる（実測22個/1.3km）
 - 警察庁 honhyo CSV は CP932・緯度経度がDMS圧縮形式（緯度9桁 DDMMSSsss / 経度10桁 DDDMMSSsss）。十進度への変換は preprocess_accidents.py 経由でのみ行う
 - Windows Git Bash の curl は `-d` の日本語をCP932で送るため、日本語入りJSONボディは400（There was an error parsing the body）になる。サーバは正常。APIの手動テストは Python urllib 等でUTF-8明示で行う
