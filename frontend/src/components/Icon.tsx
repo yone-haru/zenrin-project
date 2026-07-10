@@ -10,6 +10,10 @@ export type IconName =
   | 'close'
   | 'chevronDown'
   | 'refresh'
+  | 'locate'
+  | 'share'
+  | 'lock'
+  | 'check'
 
 const paths: Record<IconName, string> = {
   shield: 'M12 3l7 3v5c0 4.5-2.8 8.4-7 10-4.2-1.6-7-5.5-7-10V6l7-3zm-3 9l2 2 4-5',
@@ -23,6 +27,10 @@ const paths: Record<IconName, string> = {
   close: 'M6 6l12 12M18 6L6 18',
   chevronDown: 'M6 9l6 6 6-6',
   refresh: 'M4 4v6h6M20 20v-6h-6M5 13a7 7 0 0 0 12.5 3.5M19 11A7 7 0 0 0 6.5 7.5',
+  locate: 'M12 2v3m0 14v3m8-10h-3M7 12H4m13 0a5 5 0 1 1-10 0 5 5 0 0 1 10 0z',
+  share: 'M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13',
+  lock: 'M6 11V8a6 6 0 1 1 12 0v3m-13 0h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z',
+  check: 'M4 12l5 5L20 6',
 }
 
 export function Icon({ name }: { name: IconName }) {

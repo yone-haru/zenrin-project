@@ -3,19 +3,28 @@ import { fetchReports, uploadReport } from './api/reports'
 import type { Report } from './api/reports'
 import { geocode } from './api/route'
 import type { HazardPoint } from './api/route'
+import { AdminPanel } from './components/AdminPanel'
+import { EmptyStateCard } from './components/EmptyStateCard'
 import { HazardModal } from './components/HazardModal'
 import { HazardPanel } from './components/HazardPanel'
 import type { HazardListItem } from './components/HazardPanel'
 import { Icon } from './components/Icon'
 import { MapView } from './components/MapView'
 import { ReportForm } from './components/ReportForm'
+import { RouteCards, RouteCardsSkeleton } from './components/RouteCards'
 import { RouteSummary } from './components/RouteSummary'
 import { SearchPanel } from './components/SearchPanel'
 import { useGeocode } from './hooks/useGeocode'
 import { useRoute } from './hooks/useRoute'
 import type { LatLng, Point, SelectedDetail, Target } from './types'
-import { formatDistance } from './utils/format'
+import { formatDistance, formatDuration } from './utils/format'
 import { readableRiskText, riskColor } from './utils/riskColor'
+
+const TOAST_DURATION_MS = 3200
+
+function readAdminModeFromUrl(): boolean {
+  return new URLSearchParams(window.location.search).get('admin') === '1'
+}
 
 function App() {
   const [origin, setOrigin] = useState<Point | null>(null)
@@ -24,6 +33,7 @@ function App() {
   const [destinationText, setDestinationText] = useState('')
   const [pickMode, setPickMode] = useState<Target>('origin')
 
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [modalDetail, setModalDetail] = useState<SelectedDetail | null>(null)
 
@@ -36,6 +46,14 @@ function App() {
   const [reportSubmitting, setReportSubmitting] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
 
+  const [locatingCurrentLocation, setLocatingCurrentLocation] = useState(false)
+  const [currentLocationError, setCurrentLocationError] = useState<string | null>(null)
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  const [isAdminMode] = useState(readAdminModeFromUrl)
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
+
   const routeState = useRoute()
   const originGeocode = useGeocode(originText, { enabled: !isReporting })
   const destinationGeocode = useGeocode(destinationText, { enabled: !isReporting })
@@ -43,25 +61,23 @@ function App() {
   const isSearching = resolving || routeState.status === 'loading'
   const searchErrorMessage = resolveError ?? routeState.error
 
+  const routes = routeState.routes
+  const selectedRoute = routes.find((route) => route.id === selectedRouteId) ?? routes[0] ?? null
+
   useEffect(() => {
     fetchReports()
       .then(setReports)
       .catch(() => setReports([]))
   }, [])
 
-  const routePositions = useMemo<[number, number][]>(() => {
-    if (!routeState.route) return []
-    return routeState.route.route_geometry.coordinates.map(([lng, lat]) => [lat, lng])
-  }, [routeState.route])
-
   const mapReports = useMemo(() => {
     const byId = new Map<string, Report>()
     for (const report of reports) byId.set(report.id, report)
-    if (routeState.route) {
-      for (const { report } of routeState.route.danger_reports) byId.set(report.id, report)
+    if (selectedRoute) {
+      for (const { report } of selectedRoute.danger_reports) byId.set(report.id, report)
     }
     return Array.from(byId.values())
-  }, [reports, routeState.route])
+  }, [reports, selectedRoute])
 
   const selectedHazardId = selectedKey?.startsWith('hazard-') ? selectedKey.slice('hazard-'.length) : null
   const selectedReportId = selectedKey?.startsWith('report-') ? selectedKey.slice('report-'.length) : null
@@ -76,9 +92,9 @@ function App() {
     setModalDetail({ kind: 'report', report, distanceFromRouteM })
   }
 
-  const hazardItems: HazardListItem[] = routeState.route
+  const hazardItems: HazardListItem[] = selectedRoute
     ? [
-        ...routeState.route.hazard_points.map((hazard): HazardListItem => ({
+        ...selectedRoute.hazard_points.map((hazard): HazardListItem => ({
           key: `hazard-${hazard.id}`,
           color: riskColor(hazard.risk_score),
           textColor: readableRiskText(hazard.risk_score),
@@ -92,7 +108,7 @@ function App() {
           sourceLabel: '解析',
           onSelect: () => openHazard(hazard),
         })),
-        ...routeState.route.danger_reports.map(({ report, distance_from_route_m }): HazardListItem => ({
+        ...selectedRoute.danger_reports.map(({ report, distance_from_route_m }): HazardListItem => ({
           key: `report-${report.id}`,
           color: riskColor(report.risk_score),
           textColor: readableRiskText(report.risk_score),
@@ -121,15 +137,20 @@ function App() {
     return { lat: results[0].lat, lng: results[0].lng, address: results[0].name }
   }
 
-  async function handleSearch() {
+  function showToast(message: string) {
+    setToastMessage(message)
+    window.setTimeout(() => setToastMessage(null), TOAST_DURATION_MS)
+  }
+
+  async function performSearch(originQuery: string, destinationQuery: string) {
     setResolveError(null)
     setResolving(true)
     let resolvedOrigin: Point
     let resolvedDestination: Point
     try {
       ;[resolvedOrigin, resolvedDestination] = await Promise.all([
-        resolvePoint(originText, origin),
-        resolvePoint(destinationText, destination),
+        resolvePoint(originQuery, origin),
+        resolvePoint(destinationQuery, destination),
       ])
     } catch (error) {
       setResolving(false)
@@ -144,11 +165,42 @@ function App() {
 
     try {
       const response = await routeState.search(resolvedOrigin, resolvedDestination)
-      setSelectedKey(response.hazard_points[0] ? `hazard-${response.hazard_points[0].id}` : null)
+      const firstRoute = response.routes[0] ?? null
+      setSelectedRouteId(firstRoute?.id ?? null)
+      setSelectedKey(firstRoute?.hazard_points[0] ? `hazard-${firstRoute.hazard_points[0].id}` : null)
       setModalDetail(null)
+
+      const params = new URLSearchParams({ from: resolvedOrigin.address, to: resolvedDestination.address })
+      window.history.replaceState(null, '', `?${params.toString()}`)
     } catch {
       // エラーメッセージは routeState.error 経由でバナー表示される
     }
+  }
+
+  async function handleSearch() {
+    await performSearch(originText, destinationText)
+  }
+
+  // 共有URL(?from=&to=)からの初回自動検索。effect本体で直接setStateしない
+  // （eslint-plugin-react-hooks の set-state-in-effect 対策。CLAUDE.mdのハマりどころ参照）。
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const from = params.get('from')
+    const to = params.get('to')
+    if (!from || !to) return
+    const timer = window.setTimeout(() => {
+      setOriginText(from)
+      setDestinationText(to)
+      void performSearch(from, to)
+    }, 0)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- マウント時に共有URLを一度だけ適用する
+  }, [])
+
+  function handleSelectRoute(routeId: string) {
+    setSelectedRouteId(routeId)
+    setSelectedKey(null)
+    setModalDetail(null)
   }
 
   function handleMapPick(lat: number, lng: number) {
@@ -212,11 +264,57 @@ function App() {
     }
   }
 
+  function handleUseCurrentLocation() {
+    if (!navigator.geolocation) {
+      setCurrentLocationError('この端末では現在地を利用できません')
+      return
+    }
+    setCurrentLocationError(null)
+    setLocatingCurrentLocation(true)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const point: Point = { lat: position.coords.latitude, lng: position.coords.longitude, address: '現在地' }
+        setOrigin(point)
+        setOriginText('現在地')
+        setLocatingCurrentLocation(false)
+      },
+      (error) => {
+        setLocatingCurrentLocation(false)
+        setCurrentLocationError(
+          error.code === error.PERMISSION_DENIED
+            ? '現在地の利用が許可されていません'
+            : '現在地を取得できませんでした',
+        )
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    )
+  }
+
+  function buildShareUrl(): string {
+    const params = new URLSearchParams()
+    if (originText.trim()) params.set('from', originText.trim())
+    if (destinationText.trim()) params.set('to', destinationText.trim())
+    const query = params.toString()
+    return `${window.location.origin}${window.location.pathname}${query ? `?${query}` : ''}`
+  }
+
+  function handleShare() {
+    const url = buildShareUrl()
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(
+        () => showToast('リンクをコピーしました'),
+        () => showToast(url),
+      )
+    } else {
+      showToast(url)
+    }
+  }
+
   const hintMessage = isReporting
     ? reportDraft
       ? '写真とコメントを入力して送信してください'
       : '地図をクリックして危険箇所の位置を指定してください'
-    : routeState.route
+    : selectedRoute
       ? 'ルート上の危険箇所を確認できます'
       : `地図をクリックして地点を指定できます（現在: ${pickMode === 'origin' ? '出発地' : '目的地'}を指定中）`
 
@@ -225,8 +323,10 @@ function App() {
       <MapView
         origin={origin}
         destination={destination}
-        routePositions={routePositions}
-        hazards={routeState.route?.hazard_points ?? []}
+        routes={routes}
+        selectedRouteId={selectedRoute?.id ?? null}
+        onSelectRoute={handleSelectRoute}
+        hazards={selectedRoute?.hazard_points ?? []}
         selectedHazardId={selectedHazardId}
         onSelectHazard={openHazard}
         reports={mapReports}
@@ -237,45 +337,76 @@ function App() {
         isSearching={isSearching}
       />
 
-      <SearchPanel
-        originText={originText}
-        destinationText={destinationText}
-        onOriginTextChange={setOriginText}
-        onDestinationTextChange={setDestinationText}
-        originSuggestions={originGeocode.suggestions}
-        destinationSuggestions={destinationGeocode.suggestions}
-        originSuggestLoading={originGeocode.loading}
-        destinationSuggestLoading={destinationGeocode.loading}
-        onSelectOrigin={(result) => {
-          setOrigin({ lat: result.lat, lng: result.lng, address: result.name })
-          setOriginText(result.name)
-          originGeocode.clear()
-        }}
-        onSelectDestination={(result) => {
-          setDestination({ lat: result.lat, lng: result.lng, address: result.name })
-          setDestinationText(result.name)
-          destinationGeocode.clear()
-        }}
-        onClearOriginSuggestions={originGeocode.clear}
-        onClearDestinationSuggestions={destinationGeocode.clear}
-        onSwap={handleSwap}
-        onSearch={handleSearch}
-        searching={isSearching}
-        pickMode={pickMode}
-        onSetPickMode={setPickMode}
-        isReporting={isReporting}
-        onToggleReporting={handleToggleReporting}
-      />
-
-      {routeState.route && (
-        <RouteSummary
-          distanceM={routeState.route.distance_m}
-          durationS={routeState.route.duration_s}
-          hazardCount={routeState.route.hazard_points.length}
+      <div className="top-stack">
+        <SearchPanel
+          originText={originText}
+          destinationText={destinationText}
+          onOriginTextChange={setOriginText}
+          onDestinationTextChange={setDestinationText}
+          originSuggestions={originGeocode.suggestions}
+          destinationSuggestions={destinationGeocode.suggestions}
+          originSuggestLoading={originGeocode.loading}
+          destinationSuggestLoading={destinationGeocode.loading}
+          onSelectOrigin={(result) => {
+            setOrigin({ lat: result.lat, lng: result.lng, address: result.name })
+            setOriginText(result.name)
+            originGeocode.clear()
+          }}
+          onSelectDestination={(result) => {
+            setDestination({ lat: result.lat, lng: result.lng, address: result.name })
+            setDestinationText(result.name)
+            destinationGeocode.clear()
+          }}
+          onClearOriginSuggestions={originGeocode.clear}
+          onClearDestinationSuggestions={destinationGeocode.clear}
+          onSwap={handleSwap}
+          onSearch={handleSearch}
+          searching={isSearching}
+          pickMode={pickMode}
+          onSetPickMode={setPickMode}
+          isReporting={isReporting}
+          onToggleReporting={handleToggleReporting}
+          onUseCurrentLocation={handleUseCurrentLocation}
+          locatingCurrentLocation={locatingCurrentLocation}
+          currentLocationError={currentLocationError}
         />
+
+        {isSearching && <RouteCardsSkeleton />}
+
+        {!isSearching && routes.length > 0 && (
+          <>
+            <RouteCards routes={routes} selectedRouteId={selectedRoute?.id ?? null} onSelect={handleSelectRoute} />
+            {selectedRoute && (
+              <RouteSummary
+                distanceM={selectedRoute.distance_m}
+                durationS={selectedRoute.duration_s}
+                hazardCount={selectedRoute.hazard_points.length}
+                grade={selectedRoute.safety_grade}
+                score={selectedRoute.safety_score}
+                onShare={handleShare}
+              />
+            )}
+          </>
+        )}
+
+        {!isSearching && routes.length === 0 && !searchErrorMessage && <EmptyStateCard />}
+      </div>
+
+      {selectedRoute && (
+        <HazardPanel items={hazardItems} selectedKey={selectedKey} offsetForAdminButton={isAdminMode} />
       )}
 
-      {routeState.route && <HazardPanel items={hazardItems} selectedKey={selectedKey} />}
+      {isAdminMode && (
+        <button
+          type="button"
+          className="admin-toggle-button"
+          onClick={() => setShowAdminPanel(true)}
+          aria-label="管理パネルを開く"
+        >
+          <Icon name="lock" />
+          管理
+        </button>
+      )}
 
       {!searchErrorMessage && <div className={`hint-pill ${isReporting ? 'is-reporting' : ''}`}>
         <Icon name={isReporting ? 'camera' : 'pin'} />
@@ -290,6 +421,12 @@ function App() {
             <Icon name="refresh" />
             再試行
           </button>
+        </div>
+      )}
+
+      {toastMessage && (
+        <div className="toast" role="status">
+          {toastMessage}
         </div>
       )}
 
@@ -312,6 +449,36 @@ function App() {
           }}
           onSubmit={handleReportSubmit}
         />
+      )}
+
+      {showAdminPanel && (
+        <AdminPanel
+          reports={reports}
+          onUpdateReport={(updated) => setReports((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))}
+          onClose={() => setShowAdminPanel(false)}
+        />
+      )}
+
+      {selectedRoute && (
+        <section className="print-only">
+          <h1>通学路あんぜんマップ - ルート概要</h1>
+          <p>出発地: {origin?.address ?? originText}</p>
+          <p>目的地: {destination?.address ?? destinationText}</p>
+          <p>
+            安全グレード: {selectedRoute.safety_grade}（安全スコア {selectedRoute.safety_score}）
+          </p>
+          <p>
+            距離: {formatDistance(selectedRoute.distance_m)} / 所要時間: {formatDuration(selectedRoute.duration_s)}
+          </p>
+          <h2>危険箇所一覧</h2>
+          <ol>
+            {hazardItems.map((item) => (
+              <li key={item.key}>
+                {item.title}（危険度 {item.scoreLabel}）{item.distanceText ? ` ${item.distanceText}` : ''}
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
     </main>
   )

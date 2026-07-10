@@ -2,7 +2,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useEffect } from 'react'
 import { MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from 'react-leaflet'
-import type { HazardPoint } from '../api/route'
+import type { HazardPoint, RouteOption } from '../api/route'
 import type { Report } from '../api/reports'
 import type { LatLng, Point } from '../types'
 import { colorForRiskScore, readableRiskText, riskColor } from '../utils/riskColor'
@@ -155,10 +155,17 @@ function FitRoute({ points }: { points: [number, number][] }) {
   return null
 }
 
+/** RouteOptionのGeoJSON座標([lng,lat])をLeaflet座標([lat,lng])へ変換する。 */
+function toPositions(route: RouteOption): [number, number][] {
+  return route.route_geometry.coordinates.map(([lng, lat]) => [lat, lng])
+}
+
 interface MapViewProps {
   origin: Point | null
   destination: Point | null
-  routePositions: [number, number][]
+  routes: RouteOption[]
+  selectedRouteId: string | null
+  onSelectRoute: (routeId: string) => void
   hazards: HazardPoint[]
   selectedHazardId: string | null
   onSelectHazard: (hazard: HazardPoint) => void
@@ -173,7 +180,9 @@ interface MapViewProps {
 export function MapView({
   origin,
   destination,
-  routePositions,
+  routes,
+  selectedRouteId,
+  onSelectRoute,
   hazards,
   selectedHazardId,
   onSelectHazard,
@@ -184,8 +193,11 @@ export function MapView({
   onMapPick,
   isSearching,
 }: MapViewProps) {
-  const routeCues = computeRouteCues(routePositions)
-  const routeLabelPosition = routePositions[Math.floor(routePositions.length / 2)]
+  const selectedRoute = routes.find((route) => route.id === selectedRouteId) ?? routes[0] ?? null
+  const selectedPositions = selectedRoute ? toPositions(selectedRoute) : []
+  const alternativeRoutes = routes.filter((route) => route.id !== selectedRoute?.id)
+  const routeCues = computeRouteCues(selectedPositions)
+  const routeLabelPosition = selectedPositions[Math.floor(selectedPositions.length / 2)]
 
   return (
     <div className="map-wrapper">
@@ -195,14 +207,22 @@ export function MapView({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapClickHandler onPick={onMapPick} />
-        {routePositions.length > 0 && <FitRoute points={routePositions} />}
-        {routePositions.length > 0 && (
+        {selectedPositions.length > 0 && <FitRoute points={selectedPositions} />}
+        {alternativeRoutes.map((route) => (
+          <Polyline
+            key={route.id}
+            positions={toPositions(route)}
+            pathOptions={{ color: '#94a3b8', weight: 4, opacity: 0.85, dashArray: '2 10' }}
+            eventHandlers={{ click: () => onSelectRoute(route.id) }}
+          />
+        ))}
+        {selectedPositions.length > 0 && (
           <>
-            <Polyline positions={routePositions} pathOptions={{ color: '#0f172a', weight: 17, opacity: 0.18 }} />
-            <Polyline positions={routePositions} pathOptions={{ color: '#ffffff', weight: 13, opacity: 0.98 }} />
-            <Polyline positions={routePositions} pathOptions={{ color: '#2563eb', weight: 8, opacity: 1 }} />
+            <Polyline positions={selectedPositions} pathOptions={{ color: '#0f172a', weight: 17, opacity: 0.18 }} />
+            <Polyline positions={selectedPositions} pathOptions={{ color: '#ffffff', weight: 13, opacity: 0.98 }} />
+            <Polyline positions={selectedPositions} pathOptions={{ color: '#2563eb', weight: 8, opacity: 1 }} />
             <Polyline
-              positions={routePositions}
+              positions={selectedPositions}
               pathOptions={{ color: '#93c5fd', weight: 2, opacity: 0.9, dashArray: '10 14' }}
             />
             {routeCues.map((cue, index) => (

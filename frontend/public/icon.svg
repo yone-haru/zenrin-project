@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 通学路あんぜんマップ: 盾 + 道モチーフの自作アイコン -->
+  <rect width="512" height="512" rx="96" fill="#2563eb"/>
+  <path d="M256 84l128 48v104c0 88-54 158-128 192-74-34-128-104-128-192V132l128-48z" fill="#ffffff"/>
+  <path d="M256 116l100 37.5V236c0 72-42 130-100 159-58-29-100-87-100-159v-82.5L256 116z" fill="#1d4ed8"/>
+  <path d="M216 364c0-44 24-56 40-72s28-28 28-52-14-40-28-48" fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round"/>
+  <circle cx="256" cy="180" r="18" fill="#ffffff"/>
+  <circle cx="216" cy="372" r="18" fill="#4ade80"/>
+</svg>

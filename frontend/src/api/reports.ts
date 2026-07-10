@@ -57,3 +57,30 @@ export async function fetchReports(): Promise<Report[]> {
 
   return response.json()
 }
+
+export type ReportStatus = 'unconfirmed' | 'confirmed' | 'rejected'
+
+/**
+ * 管理者用: 通報のステータスを更新する。X-Admin-Token が不一致/未設定だと 401 になる
+ * （backend/.claude/plan.md 契約 v3 参照）。
+ */
+export async function updateReportStatus(id: string, status: ReportStatus, token: string): Promise<Report> {
+  const response = await fetch(`${API_BASE_URL}/api/reports/${id}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Admin-Token': token,
+    },
+    body: JSON.stringify({ status }),
+  })
+
+  if (response.status === 401) {
+    throw new Error('トークンが正しくありません')
+  }
+
+  if (!response.ok) {
+    throw new Error(await parseErrorDetail(response, 'ステータスの更新に失敗しました'))
+  }
+
+  return response.json()
+}

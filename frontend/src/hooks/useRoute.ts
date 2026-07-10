@@ -1,11 +1,11 @@
 import { useCallback, useState } from 'react'
 import { createRoute } from '../api/route'
-import type { AddressPoint, RouteResponse } from '../api/route'
+import type { AddressPoint, RouteOption, RouteResponse } from '../api/route'
 
 export type RouteStatus = 'idle' | 'loading' | 'success' | 'error'
 
 interface UseRouteResult {
-  route: RouteResponse | null
+  routes: RouteOption[]
   status: RouteStatus
   error: string | null
   search: (origin: AddressPoint, destination: AddressPoint) => Promise<RouteResponse>
@@ -15,9 +15,10 @@ interface UseRouteResult {
 /**
  * POST /api/route の呼び出しと状態管理。API失敗時に偽データへフォールバックはしない
  * （呼び出し側でエラーバナー+再試行ボタンを表示する）。
+ * v3契約: レスポンスは複数ルート（routes配列、先頭がrecommended）。
  */
 export function useRoute(): UseRouteResult {
-  const [route, setRoute] = useState<RouteResponse | null>(null)
+  const [routes, setRoutes] = useState<RouteOption[]>([])
   const [status, setStatus] = useState<RouteStatus>('idle')
   const [error, setError] = useState<string | null>(null)
 
@@ -26,22 +27,23 @@ export function useRoute(): UseRouteResult {
     setError(null)
     try {
       const response = await createRoute(origin, destination)
-      setRoute(response)
+      setRoutes(response.routes)
       setStatus('success')
       return response
     } catch (err) {
       const message = err instanceof Error ? err.message : 'ルート検索に失敗しました'
       setStatus('error')
       setError(message)
+      setRoutes([])
       throw err
     }
   }, [])
 
   const reset = useCallback(() => {
-    setRoute(null)
+    setRoutes([])
     setStatus('idle')
     setError(null)
   }, [])
 
-  return { route, status, error, search, reset }
+  return { routes, status, error, search, reset }
 }

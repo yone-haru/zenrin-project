@@ -1,0 +1,18 @@
+{
+  "name": "通学路あんぜんマップ",
+  "short_name": "あんぜんマップ",
+  "description": "出発地と目的地を指定すると、通学ルート上の危険地点を地図に可視化します。",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#2563eb",
+  "background_color": "#e8edf2",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

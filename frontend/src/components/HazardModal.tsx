@@ -3,6 +3,7 @@ import { API_BASE_URL } from '../api/reports'
 import { useDialogA11y } from '../hooks/useDialogA11y'
 import type { SelectedDetail } from '../types'
 import { formatDistance } from '../utils/format'
+import { STATUS_LABEL } from '../utils/reportStatus'
 import { riskColor, riskSoftColor } from '../utils/riskColor'
 import { Icon } from './Icon'
 
@@ -10,12 +11,6 @@ interface HazardModalProps {
   detail: SelectedDetail
   onClose: () => void
   onLocate: () => void
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  unconfirmed: '未確認',
-  confirmed: '確認済み',
-  rejected: '却下',
 }
 
 const HIGHWAY_LABEL: Record<string, string> = {

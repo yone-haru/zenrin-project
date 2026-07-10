@@ -24,15 +24,26 @@ export interface RouteDangerReport {
   distance_from_route_m: number
 }
 
-export interface RouteResponse {
+export type RouteKind = 'recommended' | 'alternative'
+export type SafetyGrade = 'A' | 'B' | 'C' | 'D' | 'E'
+
+export interface RouteOption {
+  id: string
+  kind: RouteKind
   route_geometry: {
     type: 'LineString'
     coordinates: [number, number][]
   }
   distance_m: number
   duration_s: number
+  safety_score: number
+  safety_grade: SafetyGrade
   hazard_points: HazardPoint[]
   danger_reports: RouteDangerReport[]
+}
+
+export interface RouteResponse {
+  routes: RouteOption[]
 }
 
 export interface GeocodeResult {

@@ -16,13 +16,16 @@ export interface HazardListItem {
 interface HazardPanelProps {
   items: HazardListItem[]
   selectedKey: string | null
+  offsetForAdminButton?: boolean
 }
 
-export function HazardPanel({ items, selectedKey }: HazardPanelProps) {
+export function HazardPanel({ items, selectedKey, offsetForAdminButton = false }: HazardPanelProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <aside className={`hazard-panel ${collapsed ? 'is-collapsed' : ''}`}>
+    <aside
+      className={`hazard-panel ${collapsed ? 'is-collapsed' : ''} ${offsetForAdminButton ? 'with-admin-offset' : ''}`}
+    >
       <div className="panel-title">
         <span className="sheet-handle" aria-hidden="true" />
         <h2>危険箇所一覧</h2>

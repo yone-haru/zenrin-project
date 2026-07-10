@@ -4,6 +4,12 @@ import type { GeocodeResult } from '../api/route'
 import type { Target } from '../types'
 import { Icon } from './Icon'
 
+interface LocateAction {
+  locating: boolean
+  onClick: () => void
+  label: string
+}
+
 interface AddressFieldProps {
   label: string
   dotClassName: string
@@ -17,6 +23,7 @@ interface AddressFieldProps {
   isActivePick: boolean
   onActivatePick: () => void
   pickButtonLabel: string
+  locate?: LocateAction
 }
 
 function AddressField({
@@ -32,6 +39,7 @@ function AddressField({
   isActivePick,
   onActivatePick,
   pickButtonLabel,
+  locate,
 }: AddressFieldProps) {
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
@@ -73,7 +81,7 @@ function AddressField({
         {label}
         {isActivePick && <em className="pick-flag">地図で指定中</em>}
       </span>
-      <div className={`input-shell ${dotClassName}`}>
+      <div className={`input-shell ${dotClassName} ${locate ? 'with-locate' : ''}`}>
         <input
           id={inputId}
           type="text"
@@ -96,16 +104,31 @@ function AddressField({
           onKeyDown={handleKeyDown}
         />
         {loading && <span className="field-spinner" aria-hidden="true" />}
-        <button
-          type="button"
-          className={`map-pick-button ${isActivePick ? 'is-active' : ''}`}
-          aria-pressed={isActivePick}
-          aria-label={pickButtonLabel}
-          title={pickButtonLabel}
-          onClick={onActivatePick}
-        >
-          <Icon name="pin" />
-        </button>
+        <div className="field-actions">
+          {locate && (
+            <button
+              type="button"
+              className="locate-button"
+              aria-label={locate.label}
+              title={locate.label}
+              aria-busy={locate.locating}
+              disabled={locate.locating}
+              onClick={locate.onClick}
+            >
+              {locate.locating ? <span className="spinner" aria-hidden="true" /> : <Icon name="locate" />}
+            </button>
+          )}
+          <button
+            type="button"
+            className={`map-pick-button ${isActivePick ? 'is-active' : ''}`}
+            aria-pressed={isActivePick}
+            aria-label={pickButtonLabel}
+            title={pickButtonLabel}
+            onClick={onActivatePick}
+          >
+            <Icon name="pin" />
+          </button>
+        </div>
       </div>
       {open && suggestions.length > 0 && (
         <ul className="suggestion-list" id={listboxId} role="listbox">
@@ -150,6 +173,9 @@ interface SearchPanelProps {
   onSetPickMode: (target: Target) => void
   isReporting: boolean
   onToggleReporting: () => void
+  onUseCurrentLocation: () => void
+  locatingCurrentLocation: boolean
+  currentLocationError: string | null
 }
 
 export function SearchPanel({
@@ -172,6 +198,9 @@ export function SearchPanel({
   onSetPickMode,
   isReporting,
   onToggleReporting,
+  onUseCurrentLocation,
+  locatingCurrentLocation,
+  currentLocationError,
 }: SearchPanelProps) {
   return (
     <section className="search-card">
@@ -179,7 +208,7 @@ export function SearchPanel({
         <span className="brand-icon">
           <Icon name="shield" />
         </span>
-        <h1>通学路安全マップ</h1>
+        <h1>通学路あんぜんマップ</h1>
         <button
           type="button"
           className={`report-toggle ${isReporting ? 'is-active' : ''}`}
@@ -227,6 +256,11 @@ export function SearchPanel({
           isActivePick={!isReporting && pickMode === 'origin'}
           onActivatePick={() => onSetPickMode('origin')}
           pickButtonLabel="地図で出発地を指定"
+          locate={{
+            locating: locatingCurrentLocation,
+            onClick: onUseCurrentLocation,
+            label: '現在地を出発地にする',
+          }}
         />
         <button className="swap-button" type="button" aria-label="出発地と目的地を入れ替え" onClick={onSwap}>
           <Icon name="swap" />
@@ -246,6 +280,12 @@ export function SearchPanel({
           pickButtonLabel="地図で目的地を指定"
         />
       </div>
+
+      {currentLocationError && (
+        <p className="locate-error" role="alert">
+          {currentLocationError}
+        </p>
+      )}
 
       <button
         className="search-button"
