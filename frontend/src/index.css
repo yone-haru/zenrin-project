@@ -159,17 +159,23 @@ textarea:focus-visible,
 
 .brand-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
 }
 
 .brand-row h1 {
-  flex: 1;
+  flex: 1 1 auto;
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.brand-row .report-toggle {
+  margin-left: auto;
 }
 
 .brand-icon {
