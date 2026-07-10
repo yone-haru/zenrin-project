@@ -8,6 +8,15 @@ from app.main import app
 client = TestClient(app)
 
 
+def _create_report(latitude: str = "32.7503", longitude: str = "129.8777") -> dict:
+    response = client.post(
+        "/api/reports",
+        data={"latitude": latitude, "longitude": longitude},
+        files=[("images", _fake_image())],
+    )
+    return response.json()
+
+
 def _fake_image(name: str = "photo.jpg", content_type: str = "image/jpeg", size: int = 100):
     return (name, io.BytesIO(b"\xff" * size), content_type)
 
@@ -138,3 +147,116 @@ def test_similar_reports_returns_empty_for_unknown_id() -> None:
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_list_reports_filters_by_status(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "admin_token", "secret-token")
+
+    report = _create_report()
+
+    confirmed = client.patch(
+        f"/api/reports/{report['id']}/status",
+        json={"status": "confirmed"},
+        headers={"X-Admin-Token": "secret-token"},
+    ).json()
+    assert confirmed["status"] == "confirmed"
+
+    _create_report(latitude="32.71", longitude="129.81")  # unconfirmedのまま
+
+    confirmed_only = client.get("/api/reports", params={"status": "confirmed"}).json()
+    confirmed_ids = [r["id"] for r in confirmed_only]
+    assert report["id"] in confirmed_ids
+    assert all(r["status"] == "confirmed" for r in confirmed_only)
+
+    unconfirmed_only = client.get("/api/reports", params={"status": "unconfirmed"}).json()
+    assert report["id"] not in [r["id"] for r in unconfirmed_only]
+
+
+def test_update_report_status_requires_admin_token_configured(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "admin_token", "")
+
+    report = _create_report()
+
+    response = client.patch(
+        f"/api/reports/{report['id']}/status",
+        json={"status": "confirmed"},
+        headers={"X-Admin-Token": "anything"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_update_report_status_rejects_wrong_token(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "admin_token", "secret-token")
+
+    report = _create_report()
+
+    response = client.patch(
+        f"/api/reports/{report['id']}/status",
+        json={"status": "confirmed"},
+        headers={"X-Admin-Token": "wrong-token"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_update_report_status_rejects_missing_token_header(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "admin_token", "secret-token")
+
+    report = _create_report()
+
+    response = client.patch(
+        f"/api/reports/{report['id']}/status",
+        json={"status": "confirmed"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_update_report_status_returns_404_for_unknown_report(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "admin_token", "secret-token")
+
+    unknown_id = "00000000-0000-0000-0000-000000000000"
+
+    response = client.patch(
+        f"/api/reports/{unknown_id}/status",
+        json={"status": "confirmed"},
+        headers={"X-Admin-Token": "secret-token"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_update_report_status_returns_422_for_invalid_status(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "admin_token", "secret-token")
+
+    report = _create_report()
+
+    response = client.patch(
+        f"/api/reports/{report['id']}/status",
+        json={"status": "not-a-real-status"},
+        headers={"X-Admin-Token": "secret-token"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_update_report_status_success_updates_and_persists(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "admin_token", "secret-token")
+
+    report = _create_report()
+
+    response = client.patch(
+        f"/api/reports/{report['id']}/status",
+        json={"status": "rejected"},
+        headers={"X-Admin-Token": "secret-token"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == report["id"]
+    assert body["status"] == "rejected"
+
+    persisted = client.get("/api/reports").json()
+    persisted_report = next(r for r in persisted if r["id"] == report["id"])
+    assert persisted_report["status"] == "rejected"

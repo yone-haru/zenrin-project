@@ -105,13 +105,13 @@ def _parse_response(data: dict) -> OverpassData:
     return OverpassData(ways=ways, nodes=nodes)
 
 
-async def fetch_osm_features(points: list[LatLng]) -> OverpassData:
-    """ルートpointsを包含するbboxのOSM道路・交差点情報を取得する（TTLキャッシュ付き）。"""
-    if not points:
-        return OverpassData()
+async def fetch_road_data(bbox: tuple[float, float, float, float]) -> OverpassData:
+    """既知のbbox（min_lat, min_lng, max_lat, max_lng）のOSM道路・交差点情報を取得する（TTLキャッシュ付き）。
 
-    raw_bbox = compute_bbox(points)
-    bbox = _round_bbox(*raw_bbox)
+    複数ルートを解析する場合は、呼び出し側で全ルートの合成bboxを1つ計算し、
+    このメソッドを1回だけ呼ぶこと（per-route/per-pointクエリはレート制限に当たるため禁止）。
+    """
+    bbox = _round_bbox(*bbox)
 
     cached = _cache.get(bbox)
     if cached is not None:
@@ -133,6 +133,14 @@ async def fetch_osm_features(points: list[LatLng]) -> OverpassData:
     parsed = _parse_response(payload)
     _cache[bbox] = (time.monotonic(), parsed)
     return parsed
+
+
+async def fetch_osm_features(points: list[LatLng]) -> OverpassData:
+    """ルートpointsを包含するbboxのOSM道路・交差点情報を取得する（TTLキャッシュ付き）。"""
+    if not points:
+        return OverpassData()
+
+    return await fetch_road_data(compute_bbox(points))
 
 
 def clear_cache() -> None:

@@ -7,23 +7,11 @@ from app.models.route import RoutePoint, RouteResult
 # footプロファイル時はOSRMのdurationを使わず距離から徒歩時間を算出する。
 WALKING_SPEED_M_PER_S = 80 / 60
 
+# ルート比較UIで扱う上限件数（プラン v3: 最大3ルート）。
+MAX_ALTERNATIVE_ROUTES = 3
 
-async def get_route(from_lat: float, from_lng: float, to_lat: float, to_lng: float) -> RouteResult:
-    url = f"{settings.osrm_base_url}/{settings.osrm_profile}/{from_lng},{from_lat};{to_lng},{to_lat}"
 
-    response = await request_with_retry(
-        "GET",
-        url,
-        params={"overview": "full", "geometries": "geojson"},
-    )
-    response.raise_for_status()
-    data = response.json()
-
-    routes = data.get("routes")
-    if not routes:
-        raise ValueError("ルートが見つかりませんでした")
-
-    route = routes[0]
+def _to_route_result(route: dict) -> RouteResult:
     coordinates = route["geometry"]["coordinates"]  # [lng, lat] の並び
     points = [RoutePoint(latitude=lat, longitude=lng) for lng, lat in coordinates]
 
@@ -33,3 +21,31 @@ async def get_route(from_lat: float, from_lng: float, to_lat: float, to_lng: flo
         duration_s = distance_m / WALKING_SPEED_M_PER_S
 
     return RouteResult(points=points, distance_m=distance_m, duration_s=duration_s)
+
+
+async def get_routes(
+    from_lat: float, from_lng: float, to_lat: float, to_lng: float
+) -> list[RouteResult]:
+    """OSRMからルート（推奨1件＋代替ルート）を最大 MAX_ALTERNATIVE_ROUTES 件取得する。
+
+    footプロファイル時は各ルートのdurationを80m/分で再計算する。
+    """
+    url = f"{settings.osrm_base_url}/{settings.osrm_profile}/{from_lng},{from_lat};{to_lng},{to_lat}"
+
+    response = await request_with_retry(
+        "GET",
+        url,
+        params={
+            "overview": "full",
+            "geometries": "geojson",
+            "alternatives": "true",
+        },
+    )
+    response.raise_for_status()
+    data = response.json()
+
+    routes = data.get("routes")
+    if not routes:
+        raise ValueError("ルートが見つかりませんでした")
+
+    return [_to_route_result(route) for route in routes[:MAX_ALTERNATIVE_ROUTES]]

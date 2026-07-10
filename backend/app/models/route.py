@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 from app.models.report import Report
@@ -53,12 +55,20 @@ class RouteGeometry(BaseModel):
     coordinates: list[list[float]]
 
 
-class RouteResponse(BaseModel):
+class RouteOption(BaseModel):
+    id: str
+    kind: Literal["recommended", "alternative"]
     route_geometry: RouteGeometry
     distance_m: float
     duration_s: float
+    safety_score: int
+    safety_grade: Literal["A", "B", "C", "D", "E"]
     hazard_points: list[HazardPoint]
     danger_reports: list[RouteDangerReport]
+
+
+class RouteResponse(BaseModel):
+    routes: list[RouteOption]
 
 
 class GeocodeItem(BaseModel):

@@ -203,17 +203,31 @@ def _cluster(candidates: list[HazardPoint]) -> list[HazardPoint]:
     return merged
 
 
-async def analyze_hazards(route_points: list[RoutePoint]) -> list[HazardPoint]:
+async def analyze_hazards(
+    route_points: list[RoutePoint],
+    road_data: OverpassData | None = None,
+) -> list[HazardPoint]:
+    """ルート沿いの危険地点を解析する。
+
+    road_data を渡した場合はOverpassへ問い合わせず、渡されたデータをそのまま使う。
+    複数ルートをまとめて解析する場合は、呼び出し側で全ルート合成bboxを1回だけ
+    fetch_road_data() で取得し、各ルートの解析にこの引数で共有すること
+    （per-route Overpassクエリはレート制限に当たるため禁止）。
+    road_data が None の場合は従来どおりこの関数がルート単体のbboxで取得する。
+    """
     if not route_points:
         return []
 
     polyline = [LatLng(p.latitude, p.longitude) for p in route_points]
 
-    try:
-        osm_data = await fetch_osm_features(polyline)
-    except OverpassError as error:
-        logger.warning("Overpass取得に失敗したため事故データのみで解析を継続します: %s", error)
-        osm_data = OverpassData()
+    if road_data is not None:
+        osm_data = road_data
+    else:
+        try:
+            osm_data = await fetch_osm_features(polyline)
+        except OverpassError as error:
+            logger.warning("Overpass取得に失敗したため事故データのみで解析を継続します: %s", error)
+            osm_data = OverpassData()
 
     samples = sample_polyline(polyline, SAMPLE_INTERVAL_M)
 

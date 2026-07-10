@@ -36,5 +36,9 @@ class Settings(BaseSettings):
     # ログレベル
     log_level: str = "INFO"
 
+    # 通報管理API（PATCH /api/reports/{id}/status）の管理者トークン。
+    # 未設定（空文字）の場合はトークンの値に関わらず常に401を返す。
+    admin_token: str = ""
+
 
 settings = Settings()

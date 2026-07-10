@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class ReportStatus(str, Enum):
     UNCONFIRMED = "unconfirmed"
     CONFIRMED = "confirmed"
-    RESOLVED = "resolved"
+    REJECTED = "rejected"
 
 
 class ReportSource(str, Enum):
