@@ -14,6 +14,8 @@ export type IconName =
   | 'share'
   | 'lock'
   | 'check'
+  | 'help'
+  | 'mail'
 
 const paths: Record<IconName, string> = {
   shield: 'M12 3l7 3v5c0 4.5-2.8 8.4-7 10-4.2-1.6-7-5.5-7-10V6l7-3zm-3 9l2 2 4-5',
@@ -31,6 +33,8 @@ const paths: Record<IconName, string> = {
   share: 'M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13',
   lock: 'M6 11V8a6 6 0 1 1 12 0v3m-13 0h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z',
   check: 'M4 12l5 5L20 6',
+  help: 'M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18zm-2.8-9.3a2.8 2.8 0 1 1 3.9 2.6c-.7.3-1.1.8-1.1 1.5v.4M12 17h.01',
+  mail: 'M4 6h16v12H4V6zm0 0l8 7 8-7',
 }
 
 export function Icon({ name }: { name: IconName }) {

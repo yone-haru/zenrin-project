@@ -7,4 +7,6 @@ interface ImportMetaEnv {
   readonly VITE_GOOGLE_MAPS_API_KEY?: string
   /** Cloud Consoleで作成したMap ID。未設定時はデモID(DEMO_MAP_ID)で描画する。 */
   readonly VITE_GOOGLE_MAPS_MAP_ID?: string
+  /** 「このマップについて」モーダルの問い合わせ先メール。未設定時はmailtoリンクを表示しない（plan v3.3）。 */
+  readonly VITE_CONTACT_EMAIL?: string
 }

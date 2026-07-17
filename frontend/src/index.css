@@ -231,6 +231,35 @@ textarea:focus-visible,
   height: 21px;
 }
 
+.brand-row h1 {
+  flex: 1 1 auto;
+}
+
+.about-button {
+  display: grid;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid var(--md-outline);
+  border-radius: 50%;
+  color: var(--md-text-secondary);
+  background: #ffffff;
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.about-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.about-button:hover {
+  border-color: var(--md-primary);
+  color: var(--md-primary);
+}
+
 /* 経路入力: 緑ドット→赤ピンを縦点線で結ぶ2段入力（Googleマップの経路検索風）。 */
 .route-field-stack {
   position: relative;
@@ -702,8 +731,9 @@ textarea:focus-visible,
 
 .route-card-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px 8px;
 }
 
 .route-card-score {
@@ -757,16 +787,15 @@ textarea:focus-visible,
   color: var(--md-text-secondary);
 }
 
-.grade-badge {
-  display: grid;
+.rank-badge {
+  display: inline-flex;
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border-radius: 8px;
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 900;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .share-button {
@@ -1515,10 +1544,21 @@ textarea:focus-visible,
 }
 
 .report-privacy-note {
-  margin: 14px 0 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 10px 0 0;
   color: #80868b;
   font-size: 11px;
   line-height: 1.6;
+}
+
+.report-privacy-note svg {
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  margin-top: 1px;
+  color: #b58a00;
 }
 
 .report-error {
@@ -1662,6 +1702,112 @@ textarea:focus-visible,
 .reject-button:disabled {
   cursor: wait;
   opacity: 0.6;
+}
+
+/* ===== ヘルプ「このマップについて」モーダル ===== */
+
+.about-strip {
+  background: var(--md-primary);
+}
+
+.about-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.about-steps li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #3c4043;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.about-steps li svg {
+  flex-shrink: 0;
+  width: 13px;
+  padding: 5px;
+  color: var(--md-primary);
+  background: #e8f0fe;
+  border-radius: 8px;
+  box-sizing: content-box;
+}
+
+.about-legend-caption {
+  margin: 12px 0 6px;
+  color: var(--md-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.about-legend-caption:first-child {
+  margin-top: 0;
+}
+
+.about-point-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.about-point-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: #3c4043;
+  background: #f1f3f4;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.about-point-chip i {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.about-rank-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.about-source-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #3c4043;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.about-contact-text {
+  margin: 0;
+  color: #3c4043;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.about-contact-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--md-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.about-contact-link svg {
+  width: 14px;
+  height: 14px;
 }
 
 @keyframes fadeIn {

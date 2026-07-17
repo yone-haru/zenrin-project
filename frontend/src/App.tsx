@@ -3,6 +3,7 @@ import { fetchReports, uploadReport } from './api/reports'
 import type { Report } from './api/reports'
 import { geocode } from './api/route'
 import type { HazardPoint } from './api/route'
+import { AboutModal } from './components/AboutModal'
 import { AdminPanel } from './components/AdminPanel'
 import { BottomSheet, BottomSheetSkeleton } from './components/BottomSheet'
 import { EmptyStateCard } from './components/EmptyStateCard'
@@ -18,6 +19,7 @@ import { useGeocode } from './hooks/useGeocode'
 import { useRoute } from './hooks/useRoute'
 import type { LatLng, Point, SelectedDetail, Target } from './types'
 import { formatDistance, formatDuration } from './utils/format'
+import { rankForSafetyScore } from './utils/grade'
 import { readableRiskText, riskColor } from './utils/riskColor'
 
 const TOAST_DURATION_MS = 3200
@@ -57,6 +59,7 @@ function App() {
 
   const [isAdminMode] = useState(readAdminModeFromUrl)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
+  const [showAboutModal, setShowAboutModal] = useState(false)
 
   const routeState = useRoute()
   // 確定済みの地点と同じテキストのときはサジェストを出さない（検索・候補選択の直後に開き直るのを防ぐ）
@@ -389,6 +392,7 @@ function App() {
           onUseCurrentLocation={handleUseCurrentLocation}
           locatingCurrentLocation={locatingCurrentLocation}
           currentLocationError={currentLocationError}
+          onOpenAbout={() => setShowAboutModal(true)}
         />
 
         {!isSearching && routes.length === 0 && !searchErrorMessage && <EmptyStateCard />}
@@ -485,13 +489,16 @@ function App() {
         />
       )}
 
+      {showAboutModal && <AboutModal onClose={() => setShowAboutModal(false)} />}
+
       {selectedRoute && (
         <section className="print-only">
           <h1>通学路あんぜんマップ - ルート概要</h1>
           <p>出発地: {origin?.address ?? originText}</p>
           <p>目的地: {destination?.address ?? destinationText}</p>
           <p>
-            安全グレード: {selectedRoute.safety_grade}（安全スコア {selectedRoute.safety_score}）
+            危険度ランク: {rankForSafetyScore(selectedRoute.safety_score).label}（危険度{' '}
+            {rankForSafetyScore(selectedRoute.safety_score).danger} / 安全スコア {selectedRoute.safety_score}）
           </p>
           <p>
             距離: {formatDistance(selectedRoute.distance_m)} / 所要時間: {formatDuration(selectedRoute.duration_s)}

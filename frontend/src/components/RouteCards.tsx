@@ -1,6 +1,6 @@
 import type { RouteOption } from '../api/route'
 import { formatDistance, formatDuration } from '../utils/format'
-import { GRADE_COLOR } from '../utils/grade'
+import { rankForSafetyScore } from '../utils/grade'
 import { Icon } from './Icon'
 
 interface RouteCardsProps {
@@ -25,6 +25,7 @@ export function RouteCards({ routes, selectedRouteId, onSelect }: RouteCardsProp
           const selected = route.id === selectedRouteId
           const isShortest = route.distance_m === minDistance
           const hazardCount = route.hazard_points.length
+          const rank = rankForSafetyScore(route.safety_score)
           return (
             <button
               key={route.id}
@@ -35,10 +36,10 @@ export function RouteCards({ routes, selectedRouteId, onSelect }: RouteCardsProp
               onClick={() => onSelect(route.id)}
             >
               <div className="route-card-head">
-                <span className="grade-badge" style={{ backgroundColor: GRADE_COLOR[route.safety_grade] }}>
-                  {route.safety_grade}
+                <span className="rank-badge" style={{ backgroundColor: `${rank.color}1a`, color: rank.color }}>
+                  {rank.label}
                 </span>
-                <span className="route-card-score">安全度 {route.safety_score}</span>
+                <span className="route-card-score">危険度 {rank.danger}</span>
               </div>
               <div className="route-card-chips">
                 {route.kind === 'recommended' && <em className="chip chip-recommended">推奨</em>}

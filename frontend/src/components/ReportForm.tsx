@@ -96,6 +96,10 @@ export function ReportForm({ position, submitting, error, onCancel, onSubmit }: 
               ))}
             </div>
           )}
+          <p className="report-privacy-note">
+            <Icon name="warning" />
+            顔・表札・車のナンバーなど個人情報が写らないように撮影してください
+          </p>
         </section>
 
         <section>
@@ -108,10 +112,6 @@ export function ReportForm({ position, submitting, error, onCancel, onSubmit }: 
             onChange={(event) => setComment(event.target.value)}
           />
         </section>
-
-        <p className="report-privacy-note">
-          ※ 投稿前に、画像内に他人の顔やナンバープレートなどが映り込んでいないかご確認ください。
-        </p>
 
         {(validationError || error) && (
           <p className="report-error" role="alert">

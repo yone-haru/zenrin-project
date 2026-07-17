@@ -171,6 +171,7 @@ interface SearchPanelProps {
   onUseCurrentLocation: () => void
   locatingCurrentLocation: boolean
   currentLocationError: string | null
+  onOpenAbout: () => void
 }
 
 export function SearchPanel({
@@ -195,6 +196,7 @@ export function SearchPanel({
   onUseCurrentLocation,
   locatingCurrentLocation,
   currentLocationError,
+  onOpenAbout,
 }: SearchPanelProps) {
   return (
     <section className={`search-card ${isReporting ? 'is-disabled' : ''}`}>
@@ -203,6 +205,9 @@ export function SearchPanel({
           <Icon name="shield" />
         </span>
         <h1>通学路あんぜんマップ</h1>
+        <button type="button" className="about-button" aria-label="このマップについて" onClick={onOpenAbout}>
+          <Icon name="help" />
+        </button>
       </header>
 
       <div className="route-field-stack">

@@ -1,6 +1,6 @@
 import type { RouteOption } from '../api/route'
 import { formatDistance, formatDuration } from '../utils/format'
-import { GRADE_COLOR } from '../utils/grade'
+import { rankForSafetyScore } from '../utils/grade'
 import { Icon } from './Icon'
 import { HazardList } from './HazardPanel'
 import type { HazardListItem } from './HazardPanel'
@@ -33,7 +33,7 @@ export function BottomSheet({
   expanded,
   onToggleExpanded,
 }: BottomSheetProps) {
-  const gradeColor = GRADE_COLOR[selectedRoute.safety_grade]
+  const rank = rankForSafetyScore(selectedRoute.safety_score)
 
   return (
     <section className={`bottom-sheet ${expanded ? 'is-expanded' : 'is-peek'}`} aria-label="ルート概要">
@@ -46,13 +46,14 @@ export function BottomSheet({
       >
         <span className="sheet-handle-bar" aria-hidden="true" />
         <div className="sheet-peek-row">
-          <span className="grade-badge" style={{ backgroundColor: gradeColor }}>
-            {selectedRoute.safety_grade}
+          <span className="rank-badge" style={{ backgroundColor: `${rank.color}1a`, color: rank.color }}>
+            {rank.label}
           </span>
           <div className="sheet-peek-main">
             <strong className="sheet-duration">{formatDuration(selectedRoute.duration_s)}</strong>
             <span className="sheet-meta">
-              {formatDistance(selectedRoute.distance_m)} ・ 危険 {selectedRoute.hazard_points.length}件
+              {formatDistance(selectedRoute.distance_m)} ・ 危険 {selectedRoute.hazard_points.length}件 ・ 危険度{' '}
+              {rank.danger}
             </span>
           </div>
           <Icon name="chevronDown" />
