@@ -79,7 +79,7 @@ docker compose up -d --build
 | OSRM | ルート検索 | 公開デモサーバ（**実質carルートのみ・商用不可**） | [自前ホスト](https://github.com/Project-OSRM/osrm-backend)（foot.luaプロファイル）。`OSRM_BASE_URL` で差し替え |
 | Nominatim | ジオコーディング | 公開インスタンス（1req/秒制限。バックエンドでレート制御・キャッシュ済み） | 自前ホスト or 商用API。`NOMINATIM_URL` で差し替え |
 | Overpass | 道路構造 | 公開インスタンス（1検索＝全ルート合成bboxで1クエリ＋1時間キャッシュ） | 自前ホスト。`OVERPASS_API_URL` で差し替え |
-| 地図タイル | 表示 | OpenStreetMap | ゼンリン地図タイル（`frontend/.env` の `VITE_ZENRIN_MAP_API_KEY`、差し替えは MapView のタイルURL） |
+| 地図タイル | 表示 | CARTO Voyager（OSMベースの淡色タイル。要attribution・大規模利用はCARTO契約） | ゼンリン地図タイル（`frontend/.env` の `VITE_ZENRIN_MAP_API_KEY`、差し替えは MapView のタイルURL） |
 
 ## 事故データの更新
 
