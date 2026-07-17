@@ -19,7 +19,10 @@ import uuid
 
 from app.core.geo import (
     LatLng,
+    bearing_change_deg,
+    bearing_deg,
     haversine_distance_m,
+    point_at_distance_m,
     point_to_polyline_distance_m,
     sample_polyline,
 )
@@ -39,6 +42,12 @@ ACCIDENT_SEARCH_RADIUS_M = 50
 MIN_HAZARD_SCORE = 2
 # サンプリング間隔(50m)より大きくないと隣接サンプルが統合されない点に注意
 CLUSTER_RADIUS_M = 120
+# 変則交差点（五差路など）: ノード共有が確認できた道路グループがこの数以上なら複雑とみなす
+MIN_GROUPS_FOR_COMPLEX_INTERSECTION = 3
+# 急カーブ判定: サンプル点の前後この距離（m）での方位変化を見る
+SHARP_CURVE_WINDOW_M = 20
+# この角度（度）以上の方位変化があれば急カーブとする
+SHARP_CURVE_ANGLE_THRESHOLD_DEG = 60
 
 
 def _match_way_tags(point: LatLng, osm_data: OverpassData) -> dict[str, str]:
@@ -91,46 +100,87 @@ def _way_coords(way) -> set:
     return {(round(p.lat, 7), round(p.lng, 7)) for p in way.geometry}
 
 
-def _groups_share_junction_near(point: LatLng, groups: dict) -> bool:
-    """異なるグループのway同士が、pointの近くでノード（座標）を共有しているか。
-
-    OSMでは交差・接続する道路は必ず共通ノードを持つ一方、oneway対向車線ペアの
-    ような並行道路はノードを共有しない。これにより「近くにway 2本＝交差点」の
-    誤検出（並行車線・並走する別道路）を防ぐ。
-    """
-    coords_by_group = {
-        key: set().union(*(_way_coords(w) for w in ways)) for key, ways in groups.items()
-    }
-    keys = list(coords_by_group)
-    for i in range(len(keys)):
-        for j in range(i + 1, len(keys)):
-            shared = coords_by_group[keys[i]] & coords_by_group[keys[j]]
-            for lat, lng in shared:
-                if haversine_distance_m(point.lat, point.lng, lat, lng) <= JUNCTION_NODE_RADIUS_M:
-                    return True
-    return False
-
-
-def _has_uncontrolled_intersection(point: LatLng, osm_data: OverpassData) -> bool:
+def _intersection_way_groups_near(point: LatLng, osm_data: OverpassData) -> dict:
     groups: dict = {}
     for way in osm_data.ways:
         if (way.tags.get("highway") or "").lower() in _NON_ROADWAY_HIGHWAYS:
             continue
         if point_to_polyline_distance_m(point, way.geometry) <= INTERSECTION_WAY_RADIUS_M:
             groups.setdefault(_way_group_key(way), []).append(way)
+    return groups
 
+
+def _connected_group_count_near(point: LatLng, groups: dict) -> int:
+    """pointの近くでノード（座標）を共有している道路グループの数を返す。
+
+    OSMでは交差・接続する道路は必ず共通ノードを持つ一方、oneway対向車線ペアの
+    ような並行道路はノードを共有しない。これにより「近くにway 2本＝交差点」の
+    誤検出（並行車線・並走する別道路）を防ぐ。戻り値は「pointの近くで互いに
+    ノードを共有していることが確認できたグループ」の数（0/1なら交差点ではない、
+    3以上なら五差路等の変則交差点候補）。
+    """
+    coords_by_group = {
+        key: set().union(*(_way_coords(w) for w in ways)) for key, ways in groups.items()
+    }
+    keys = list(coords_by_group)
+    connected_keys: set = set()
+    for i in range(len(keys)):
+        for j in range(i + 1, len(keys)):
+            shared = coords_by_group[keys[i]] & coords_by_group[keys[j]]
+            for lat, lng in shared:
+                if haversine_distance_m(point.lat, point.lng, lat, lng) <= JUNCTION_NODE_RADIUS_M:
+                    connected_keys.add(keys[i])
+                    connected_keys.add(keys[j])
+    return len(connected_keys)
+
+
+def _intersection_info(point: LatLng, osm_data: OverpassData) -> tuple[bool, int]:
+    """pointにおける交差点情報を (has_uncontrolled_intersection, connected_group_count) で返す。
+
+    has_uncontrolled_intersection: ノード共有が確認できた道路が2本以上あり、かつ
+    近くに信号・横断歩道・一時停止等の制御ノードが無い場合True。
+    connected_group_count: ノード共有が確認できた道路グループ数（複雑な交差点判定に使う）。
+    """
+    groups = _intersection_way_groups_near(point, osm_data)
     if len(groups) < 2:
-        return False
+        return False, 0
 
-    if not _groups_share_junction_near(point, groups):
-        return False
+    group_count = _connected_group_count_near(point, groups)
+    if group_count < 2:
+        return False, 0
 
     has_crossing_control = any(
         haversine_distance_m(point.lat, point.lng, node.point.lat, node.point.lng)
         <= CROSSING_NODE_RADIUS_M
         for node in osm_data.nodes
     )
-    return not has_crossing_control
+    return not has_crossing_control, group_count
+
+
+def _has_uncontrolled_intersection(point: LatLng, osm_data: OverpassData) -> bool:
+    has_uncontrolled, _ = _intersection_info(point, osm_data)
+    return has_uncontrolled
+
+
+def _detect_sharp_curve(
+    polyline: list[LatLng], point: LatLng, distance_from_origin: float
+) -> bool:
+    """pointの前後SHARP_CURVE_WINDOW_M地点との方位変化がしきい値以上なら急カーブとみなす。
+
+    ルート端付近で前後どちらかの窓がクランプにより point 自身と同一地点になる
+    場合は方位を計算できないため急カーブなしとする。
+    """
+    before = point_at_distance_m(polyline, distance_from_origin - SHARP_CURVE_WINDOW_M)
+    after = point_at_distance_m(polyline, distance_from_origin + SHARP_CURVE_WINDOW_M)
+
+    if haversine_distance_m(before.lat, before.lng, point.lat, point.lng) < 1.0:
+        return False
+    if haversine_distance_m(after.lat, after.lng, point.lat, point.lng) < 1.0:
+        return False
+
+    bearing_in = bearing_deg(before, point)
+    bearing_out = bearing_deg(point, after)
+    return bearing_change_deg(bearing_in, bearing_out) >= SHARP_CURVE_ANGLE_THRESHOLD_DEG
 
 
 def _title_for(osm_tags: dict[str, str], has_intersection: bool) -> str:
@@ -234,10 +284,18 @@ async def analyze_hazards(
     candidates: list[HazardPoint] = []
     for point, distance_from_origin in samples:
         osm_tags = _match_way_tags(point, osm_data)
-        has_intersection = _has_uncontrolled_intersection(point, osm_data)
+        has_intersection, group_count = _intersection_info(point, osm_data)
+        complex_intersection = group_count >= MIN_GROUPS_FOR_COMPLEX_INTERSECTION
+        sharp_curve = _detect_sharp_curve(polyline, point, distance_from_origin)
         accident_count = accident_service.count_near(point.lat, point.lng, ACCIDENT_SEARCH_RADIUS_M)
 
-        score, factors = calculate_hazard_score(osm_tags, accident_count, has_intersection)
+        score, factors = calculate_hazard_score(
+            osm_tags,
+            accident_count,
+            has_intersection,
+            complex_intersection=complex_intersection,
+            sharp_curve=sharp_curve,
+        )
         if score < MIN_HAZARD_SCORE:
             continue
 

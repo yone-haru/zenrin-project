@@ -68,12 +68,18 @@ def calculate_hazard_score(
     osm_tags: dict[str, str],
     accident_count: int,
     has_uncontrolled_intersection: bool = False,
+    complex_intersection: bool = False,
+    sharp_curve: bool = False,
 ) -> tuple[int, list[str]]:
     """OSM道路タグと近傍事故件数から危険スコア（1〜5）と要因一覧を算出する。
 
     仮定: `sidewalk` タグが明示的に `no`/`none` の場合のみ「歩道なし」と判定する
     （タグ自体が存在しない住宅地道路は非常に多く、欠如＝歩道なしと解釈すると
     過大評価になりやすいため）。
+
+    complex_intersection（変則交差点・五差路など）は has_uncontrolled_intersection
+    （信号・横断歩道の有無）とは独立に加点する。信号があっても道路の合流本数が
+    多ければ見通し・判断の複雑さは残るため。
     """
     score = 0
     factors: list[str] = []
@@ -100,6 +106,14 @@ def calculate_hazard_score(
     if has_uncontrolled_intersection:
         score += 1
         factors.append("信号・横断歩道のない交差点")
+
+    if complex_intersection:
+        score += 1
+        factors.append("複雑な交差点（五差路など）")
+
+    if sharp_curve:
+        score += 1
+        factors.append("急カーブ")
 
     if accident_count >= _MANY_ACCIDENTS_THRESHOLD:
         score += 2

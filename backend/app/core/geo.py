@@ -94,3 +94,48 @@ def sample_polyline(polyline: list[LatLng], interval_m: float) -> list[tuple[Lat
         samples.append((polyline[-1], total_length))
 
     return samples
+
+
+def point_at_distance_m(polyline: list[LatLng], target_m: float) -> LatLng:
+    """折れ線の起点からtarget_m（沿道距離）進んだ地点を線形補間で返す。
+
+    target_m が範囲外の場合は始点・終点にクランプする（急カーブ判定で
+    ルート両端付近の窓が route 外にはみ出さないようにするため）。
+    """
+    if not polyline:
+        raise ValueError("polyline is empty")
+    if len(polyline) == 1:
+        return polyline[0]
+
+    target_m = max(0.0, target_m)
+    cumulative = 0.0
+    for i in range(len(polyline) - 1):
+        seg_start, seg_end = polyline[i], polyline[i + 1]
+        seg_len = haversine_distance_m(seg_start.lat, seg_start.lng, seg_end.lat, seg_end.lng)
+        if seg_len == 0:
+            continue
+        if target_m <= cumulative + seg_len:
+            ratio = max(0.0, min(1.0, (target_m - cumulative) / seg_len))
+            lat = seg_start.lat + (seg_end.lat - seg_start.lat) * ratio
+            lng = seg_start.lng + (seg_end.lng - seg_start.lng) * ratio
+            return LatLng(lat, lng)
+        cumulative += seg_len
+
+    return polyline[-1]
+
+
+def bearing_deg(start: LatLng, end: LatLng) -> float:
+    """startからendへの方位角（度・0-360、北=0・東=90）を返す。"""
+    lat1 = math.radians(start.lat)
+    lat2 = math.radians(end.lat)
+    d_lng = math.radians(end.lng - start.lng)
+    x = math.sin(d_lng) * math.cos(lat2)
+    y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(d_lng)
+    theta = math.atan2(x, y)
+    return (math.degrees(theta) + 360) % 360
+
+
+def bearing_change_deg(bearing1: float, bearing2: float) -> float:
+    """2つの方位角の差（0-180度、向きは区別しない）を返す。"""
+    diff = abs(bearing1 - bearing2) % 360
+    return min(diff, 360 - diff)

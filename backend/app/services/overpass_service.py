@@ -81,7 +81,7 @@ def _build_query(bbox: tuple[float, float, float, float]) -> str:
 [out:json][timeout:25];
 (
   way[highway]({bbox_str});
-  node[highway~"crossing|traffic_signals"]({bbox_str});
+  node[highway~"crossing|traffic_signals|stop"]({bbox_str});
 );
 out geom;
 """

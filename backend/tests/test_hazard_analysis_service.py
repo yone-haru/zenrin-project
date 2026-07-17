@@ -2,7 +2,7 @@ import asyncio
 
 from app.models.route import RoutePoint
 from app.services import accident_service, hazard_analysis_service
-from app.services.overpass_service import OsmWay, OverpassData, OverpassError
+from app.services.overpass_service import OsmNode, OsmWay, OverpassData, OverpassError
 
 
 def _straight_route(n_points: int = 5, step_deg: float = 0.0005) -> list[RoutePoint]:
@@ -258,3 +258,113 @@ def test_unnamed_parallel_ways_without_shared_node_are_not_intersection() -> Non
     )
 
     assert hazard_analysis_service._has_uncontrolled_intersection(point, osm_data) is False
+
+
+def test_stop_sign_node_makes_intersection_controlled() -> None:
+    # 一時停止標識（highway=stop、overpass_serviceのクエリで crossing/traffic_signals と
+    # 同じ nodes リストに入る）が近くにあれば「制御あり」となり非加点になる。
+    # 交差点判定はタグの種類を見ず近接ノードの有無だけで判定するため、
+    # crossing/traffic_signals と同様に扱われることを確認する。
+    point, west_geom, _ = _parallel_ways_point_and_geometry()
+    osm_data = OverpassData(
+        ways=[
+            OsmWay(id=1, tags={"highway": "primary", "name": "国道34号"}, geometry=west_geom),
+            OsmWay(id=2, tags={"highway": "residential", "name": "寺町通り"}, geometry=_crossing_geometry()),
+        ],
+        nodes=[OsmNode(id=1, tags={"highway": "stop"}, point=point)],
+    )
+
+    assert hazard_analysis_service._has_uncontrolled_intersection(point, osm_data) is False
+
+
+def _five_way_geometries(point):
+    # pointを共有ノードとする変則交差点を作るため、既存の2本（west_geom・crossing）に
+    # 加えて別方向の3本目（斜め方向）を用意し、group_count>=3（五差路など）にする。
+    diagonal_geom = [
+        hazard_analysis_service.LatLng(32.7498, 129.8772),
+        point,
+        hazard_analysis_service.LatLng(32.7508, 129.8782),
+    ]
+    return diagonal_geom
+
+
+def test_intersection_info_detects_complex_intersection_with_three_or_more_groups() -> None:
+    point, west_geom, _ = _parallel_ways_point_and_geometry()
+    diagonal_geom = _five_way_geometries(point)
+    osm_data = OverpassData(
+        ways=[
+            OsmWay(id=1, tags={"highway": "primary", "name": "国道34号"}, geometry=west_geom),
+            OsmWay(id=2, tags={"highway": "residential", "name": "寺町通り"}, geometry=_crossing_geometry()),
+            OsmWay(id=3, tags={"highway": "residential", "name": "斜め通り"}, geometry=diagonal_geom),
+        ],
+        nodes=[],
+    )
+
+    has_uncontrolled, group_count = hazard_analysis_service._intersection_info(point, osm_data)
+
+    assert group_count >= 3
+    assert has_uncontrolled is True  # 制御ノードが無いので信号なし交差点でもある
+
+
+def test_intersection_info_with_two_groups_is_not_complex() -> None:
+    point, west_geom, _ = _parallel_ways_point_and_geometry()
+    osm_data = OverpassData(
+        ways=[
+            OsmWay(id=1, tags={"highway": "primary", "name": "国道34号"}, geometry=west_geom),
+            OsmWay(id=2, tags={"highway": "residential", "name": "寺町通り"}, geometry=_crossing_geometry()),
+        ],
+        nodes=[],
+    )
+
+    _, group_count = hazard_analysis_service._intersection_info(point, osm_data)
+
+    assert group_count == 2  # MIN_GROUPS_FOR_COMPLEX_INTERSECTION(3)未満
+
+
+def _right_angle_polyline():
+    """赤道付近を通る、北へ100m→東へ100mの直角に折れる合成polyline（等長方位近似）。"""
+    m_per_deg = 111_320.0
+    step_m = 10.0
+    step_deg = step_m / m_per_deg
+
+    north_leg = [
+        hazard_analysis_service.LatLng(i * step_deg, 0.0) for i in range(0, 11)
+    ]  # 0m〜100m北
+    east_leg = [
+        hazard_analysis_service.LatLng(10 * step_deg, i * step_deg) for i in range(1, 11)
+    ]  # 100m北の地点から東へ100m
+    return north_leg + east_leg
+
+
+def test_detect_sharp_curve_true_at_right_angle_turn() -> None:
+    polyline = _right_angle_polyline()
+    corner = polyline[10]  # 北へ100m進んだ、東への切り返し地点
+
+    assert hazard_analysis_service._detect_sharp_curve(polyline, corner, 100.0) is True
+
+
+def test_detect_sharp_curve_false_on_straight_segment() -> None:
+    polyline = _right_angle_polyline()
+    mid_straight = polyline[5]  # 北へ50m地点、まだ直進区間
+
+    assert hazard_analysis_service._detect_sharp_curve(polyline, mid_straight, 50.0) is False
+
+
+def test_analyze_hazards_flags_sharp_curve_near_bend(monkeypatch) -> None:
+    polyline = _right_angle_polyline()
+    route_points = [RoutePoint(latitude=p.lat, longitude=p.lng) for p in polyline]
+
+    async def fake_fetch(_points):
+        way = OsmWay(
+            id=1,
+            tags={"highway": "primary", "sidewalk": "no"},
+            geometry=polyline,
+        )
+        return OverpassData(ways=[way], nodes=[])
+
+    monkeypatch.setattr(hazard_analysis_service, "fetch_osm_features", fake_fetch)
+    monkeypatch.setattr(accident_service, "count_near", lambda lat, lng, radius_m=50: 0)
+
+    hazards = asyncio.run(hazard_analysis_service.analyze_hazards(route_points))
+
+    assert any("急カーブ" in h.risk_factors for h in hazards)
