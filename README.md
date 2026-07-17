@@ -80,6 +80,7 @@ APIキーを設定すると、地図・徒歩ルート・地点検索が Google 
 4. キーを設定（`.env` はコミットされない）:
    - `backend/.env` → `GOOGLE_MAPS_API_KEY=<キー>`（Routes API・Places が有効になる）
    - `frontend/.env` → `VITE_GOOGLE_MAPS_API_KEY=<キー>`（地図表示が Google Maps になる）
+5. （任意）Cloud Console の「マップ管理」で Map ID を作成し `frontend/.env` の `VITE_GOOGLE_MAPS_MAP_ID=` に設定すると独自スタイルの地図になる。未設定時はGoogle公式のデモID（`DEMO_MAP_ID`・開発用）で描画される
 
 Google 経路は本物の徒歩ルート＋複数候補を返すため、OSRMデモサーバの「車ルートしか返さない」制約と Nominatim の日本語検索の弱さが同時に解消される。無料枠（各API 月1万コール程度）内なら課金は発生しない。
 

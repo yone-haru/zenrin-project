@@ -8,7 +8,10 @@ import { colorForRiskScore, readableRiskText, riskColor } from '../utils/riskCol
 import type { MapViewProps } from './mapTypes'
 
 const NAGASAKI_CENTER = { lat: 32.7503, lng: 129.8777 }
-const MAP_ID = 'SAFETY_MAP'
+// Map IDはGoogle Cloudプロジェクトに実在するIDでないとベクター地図が描画されない。
+// 未設定時はGoogle公式のデモID（任意のプロジェクトで動作、開発用）にフォールバックする。
+// 本番はCloud Consoleで作成したMap IDを VITE_GOOGLE_MAPS_MAP_ID に設定すること。
+const MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
 
 // fitBounds時、UIオーバーレイを避けるパディング。MapView.tsx(Leaflet版)のFIT_PADDING_*と同じ値（plan v3.1/v3.2）。
 const FIT_PADDING_DESKTOP: google.maps.Padding = { top: 90, left: 460, bottom: 80, right: 60 }
