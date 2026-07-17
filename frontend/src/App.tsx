@@ -6,10 +6,12 @@ import type { HazardPoint } from './api/route'
 import { AdminPanel } from './components/AdminPanel'
 import { BottomSheet, BottomSheetSkeleton } from './components/BottomSheet'
 import { EmptyStateCard } from './components/EmptyStateCard'
+import { GoogleMapView } from './components/GoogleMapView'
 import { HazardModal } from './components/HazardModal'
 import type { HazardListItem } from './components/HazardPanel'
 import { Icon } from './components/Icon'
 import { MapView } from './components/MapView'
+import type { MapViewProps } from './components/mapTypes'
 import { ReportForm } from './components/ReportForm'
 import { SearchPanel } from './components/SearchPanel'
 import { useGeocode } from './hooks/useGeocode'
@@ -23,6 +25,9 @@ const TOAST_DURATION_MS = 3200
 function readAdminModeFromUrl(): boolean {
   return new URLSearchParams(window.location.search).get('admin') === '1'
 }
+
+// キー未設定時は現行のLeaflet版(MapView)にフォールバックする（plan v3.2）。
+const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? ''
 
 function App() {
   const [origin, setOrigin] = useState<Point | null>(null)
@@ -328,24 +333,30 @@ function App() {
   const showHintPill = !searchErrorMessage && (isReporting || !selectedRoute)
   const sheetVisible = !isSearching && !!selectedRoute
 
+  const mapViewProps: MapViewProps = {
+    origin,
+    destination,
+    routes,
+    selectedRouteId: selectedRoute?.id ?? null,
+    onSelectRoute: handleSelectRoute,
+    hazards: selectedRoute?.hazard_points ?? [],
+    selectedHazardId,
+    onSelectHazard: openHazard,
+    reports: mapReports,
+    selectedReportId,
+    onSelectReport: (report) => openReport(report),
+    reportDraft,
+    onMapPick: handleMapPick,
+    isSearching,
+  }
+
   return (
     <main className="app-shell">
-      <MapView
-        origin={origin}
-        destination={destination}
-        routes={routes}
-        selectedRouteId={selectedRoute?.id ?? null}
-        onSelectRoute={handleSelectRoute}
-        hazards={selectedRoute?.hazard_points ?? []}
-        selectedHazardId={selectedHazardId}
-        onSelectHazard={openHazard}
-        reports={mapReports}
-        selectedReportId={selectedReportId}
-        onSelectReport={(report) => openReport(report)}
-        reportDraft={reportDraft}
-        onMapPick={handleMapPick}
-        isSearching={isSearching}
-      />
+      {googleMapsApiKey ? (
+        <GoogleMapView apiKey={googleMapsApiKey} {...mapViewProps} />
+      ) : (
+        <MapView {...mapViewProps} />
+      )}
 
       <div className="top-stack">
         <SearchPanel

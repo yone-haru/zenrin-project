@@ -4,8 +4,8 @@ import { Fragment, useEffect } from 'react'
 import { MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import type { HazardPoint, RouteOption } from '../api/route'
 import type { Report } from '../api/reports'
-import type { LatLng, Point } from '../types'
 import { colorForRiskScore, readableRiskText, riskColor } from '../utils/riskColor'
+import type { MapViewProps } from './mapTypes'
 
 const NAGASAKI_CENTER: [number, number] = [32.7503, 129.8777]
 const LONG_PRESS_MS = 600
@@ -172,23 +172,6 @@ function FitRoute({ points }: { points: [number, number][] }) {
 /** RouteOptionのGeoJSON座標([lng,lat])をLeaflet座標([lat,lng])へ変換する。 */
 function toPositions(route: RouteOption): [number, number][] {
   return route.route_geometry.coordinates.map(([lng, lat]) => [lat, lng])
-}
-
-interface MapViewProps {
-  origin: Point | null
-  destination: Point | null
-  routes: RouteOption[]
-  selectedRouteId: string | null
-  onSelectRoute: (routeId: string) => void
-  hazards: HazardPoint[]
-  selectedHazardId: string | null
-  onSelectHazard: (hazard: HazardPoint) => void
-  reports: Report[]
-  selectedReportId: string | null
-  onSelectReport: (report: Report) => void
-  reportDraft: LatLng | null
-  onMapPick: (lat: number, lng: number) => void
-  isSearching: boolean
 }
 
 export function MapView({
