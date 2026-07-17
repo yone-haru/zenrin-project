@@ -5,9 +5,11 @@ from collections import OrderedDict
 from app.core.config import settings
 from app.core.http import request_with_retry
 from app.models.route import GeocodeResult
+from app.services import google_places_service
 
 # 無料のOpenStreetMap Nominatim API。ゼンリンのジオコーディングAPI取得後はこちらに差し替える。
 # 利用ポリシー上、クライアント側で最低1秒間隔のレート制御を行う。
+# GOOGLE_MAPS_API_KEY 設定時はGoogle Places API (New) にディスパッチする（下部 search_places 参照）。
 _CACHE_MAX_SIZE = 256
 _cache: "OrderedDict[tuple[str, int], list[GeocodeResult]]" = OrderedDict()
 _rate_lock = asyncio.Lock()
@@ -38,7 +40,21 @@ async def _rate_limit() -> None:
         _last_request_at = time.monotonic()
 
 
+def _is_google_configured() -> bool:
+    return bool(settings.google_maps_api_key)
+
+
 async def search_places(query: str, limit: int = 5) -> list[GeocodeResult]:
+    """地点検索のプロバイダディスパッチャ。
+
+    `GOOGLE_MAPS_API_KEY` 設定時はGoogle Places API (New)、未設定時は既存のNominatim実装を使う。
+    """
+    if _is_google_configured():
+        return await google_places_service.search_places(query, limit)
+    return await _search_places_nominatim(query, limit)
+
+
+async def _search_places_nominatim(query: str, limit: int = 5) -> list[GeocodeResult]:
     cache_key = (query, limit)
     cached = _cache_get(cache_key)
     if cached is not None:

@@ -40,5 +40,9 @@ class Settings(BaseSettings):
     # 未設定（空文字）の場合はトークンの値に関わらず常に401を返す。
     admin_token: str = ""
 
+    # Google Maps Platform（Routes API・Places API (New)）。
+    # 設定時はルート検索・地点検索がGoogleに切り替わる。未設定時は既存のOSRM/Nominatimで動作する。
+    google_maps_api_key: str = ""
+
 
 settings = Settings()
