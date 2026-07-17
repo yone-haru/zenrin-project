@@ -70,6 +70,19 @@ docker compose up -d --build
 - `http://localhost/`（ポート80）でフロントエンドが配信され、nginx が `/api`・`/uploads` をバックエンドへプロキシする（同一オリジンのためCORS設定不要）
 - 投稿データ（SQLite）とアップロード画像は名前付きボリューム `backend-data` / `backend-uploads` に永続化される
 
+## Google Maps Platform 統合（任意・推奨）
+
+APIキーを設定すると、地図・徒歩ルート・地点検索が Google に切り替わる（**未設定時は自動的に OSM/OSRM/Nominatim 構成で動作**するので必須ではない）。
+
+1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクト作成 → 課金を有効化
+2. **Maps JavaScript API / Routes API / Places API (New)** の3つを有効化
+3. APIキーを作成（アプリケーション制限で HTTPリファラー `http://localhost:5173/*` 等を推奨）
+4. キーを設定（`.env` はコミットされない）:
+   - `backend/.env` → `GOOGLE_MAPS_API_KEY=<キー>`（Routes API・Places が有効になる）
+   - `frontend/.env` → `VITE_GOOGLE_MAPS_API_KEY=<キー>`（地図表示が Google Maps になる）
+
+Google 経路は本物の徒歩ルート＋複数候補を返すため、OSRMデモサーバの「車ルートしか返さない」制約と Nominatim の日本語検索の弱さが同時に解消される。無料枠（各API 月1万コール程度）内なら課金は発生しない。
+
 ### 本番運用時の注意（外部API）
 
 デフォルトでは無料の公開インスタンスを利用しているため、本格運用時は差し替えること。
