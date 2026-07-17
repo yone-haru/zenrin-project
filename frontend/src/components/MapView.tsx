@@ -1,6 +1,6 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useEffect } from 'react'
+import { Fragment, useEffect } from 'react'
 import { MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import type { HazardPoint, RouteOption } from '../api/route'
 import type { Report } from '../api/reports'
@@ -11,22 +11,67 @@ const NAGASAKI_CENTER: [number, number] = [32.7503, 129.8777]
 const LONG_PRESS_MS = 600
 const LONG_PRESS_MOVE_TOLERANCE_PX = 12
 
-function pointIcon(label: 'A' | 'B', color: string) {
+// fitBounds時、UIオーバーレイを避けるパディング（plan v3.1）。
+// デスクトップは検索カード・ボトムシートが左寄せ(幅~420px)なので左を大きく空け、
+// モバイルは全幅ボトムシートの分だけ下を空ける。
+const FIT_PADDING_DESKTOP = {
+  paddingTopLeft: [460, 90] as [number, number],
+  paddingBottomRight: [60, 80] as [number, number],
+}
+const FIT_PADDING_MOBILE = {
+  paddingTopLeft: [24, 150] as [number, number],
+  paddingBottomRight: [24, 240] as [number, number],
+}
+
+function originIcon() {
   return L.divIcon({
     className: '',
-    iconSize: [34, 42],
-    iconAnchor: [17, 39],
-    html: `<div class="point-marker" style="--marker-color:${color}"><span>${label}</span></div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+    html: '<div class="origin-marker"></div>',
   })
 }
 
-function hazardIcon(hazard: HazardPoint, selected: boolean) {
-  const color = riskColor(hazard.risk_score)
+function destinationIcon() {
   return L.divIcon({
     className: '',
-    iconSize: selected ? [44, 44] : [36, 36],
-    iconAnchor: selected ? [22, 22] : [18, 18],
-    html: `<div class="hazard-marker ${selected ? 'is-selected' : ''}" style="--risk-color:${color};--risk-text:${readableRiskText(hazard.risk_score)}">${hazard.risk_score}</div>`,
+    iconSize: [30, 42],
+    iconAnchor: [15, 40],
+    html: '<div class="destination-marker"><svg viewBox="0 0 24 36" aria-hidden="true"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="#ea4335"/><circle cx="12" cy="12" r="5" fill="#ffffff"/></svg></div>',
+  })
+}
+
+/** 危険ピンのデクラッタ（plan v3.1）: score2=10pxドット/3=14pxドット/4-5=24px数字バッジ。選択中は1.3倍+リング。 */
+function hazardIcon(hazard: HazardPoint, selected: boolean) {
+  const score = hazard.risk_score
+  const color = riskColor(score)
+
+  if (score <= 2) {
+    const size = selected ? 13 : 10
+    return L.divIcon({
+      className: '',
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      html: `<div class="hazard-dot ${selected ? 'is-selected' : ''}" style="--risk-color:${color}"></div>`,
+    })
+  }
+
+  if (score === 3) {
+    const size = selected ? 18 : 14
+    return L.divIcon({
+      className: '',
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      html: `<div class="hazard-dot ${selected ? 'is-selected' : ''}" style="--risk-color:${color}"></div>`,
+    })
+  }
+
+  const size = selected ? 31 : 24
+  return L.divIcon({
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    html: `<div class="hazard-badge ${selected ? 'is-selected' : ''}" style="--risk-color:${color};--risk-text:${readableRiskText(score)}">${score}</div>`,
   })
 }
 
@@ -46,38 +91,6 @@ function reportDraftIcon() {
     iconSize: [40, 40],
     iconAnchor: [20, 20],
     html: '<div class="report-draft-marker"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h3l1.7-2.2A1 1 0 0 1 9.5 5h5a1 1 0 0 1 .8.4L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zm8 3a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/></svg></div>',
-  })
-}
-
-function routeCueIcon(angle: number, label?: string) {
-  return L.divIcon({
-    className: '',
-    iconSize: label ? [116, 34] : [30, 30],
-    iconAnchor: label ? [58, 17] : [15, 15],
-    html: label
-      ? `<div class="route-label">${label}</div>`
-      : `<div class="route-cue" style="--route-angle:${angle}deg">➜</div>`,
-  })
-}
-
-function bearing(from: [number, number], to: [number, number]) {
-  const deltaLng = ((to[1] - from[1]) * Math.PI) / 180
-  const lat1 = (from[0] * Math.PI) / 180
-  const lat2 = (to[0] * Math.PI) / 180
-  const y = Math.sin(deltaLng) * Math.cos(lat2)
-  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLng)
-  return (Math.atan2(y, x) * 180) / Math.PI
-}
-
-function computeRouteCues(routePositions: [number, number][]) {
-  if (routePositions.length < 3) return []
-  const cueCount = Math.min(5, routePositions.length - 2)
-  return Array.from({ length: cueCount }, (_, index) => {
-    const pointIndex = Math.max(1, Math.round(((index + 1) * (routePositions.length - 1)) / (cueCount + 1)))
-    return {
-      position: routePositions[pointIndex],
-      angle: bearing(routePositions[pointIndex - 1], routePositions[Math.min(routePositions.length - 1, pointIndex + 1)]),
-    }
   })
 }
 
@@ -149,7 +162,8 @@ function FitRoute({ points }: { points: [number, number][] }) {
   const map = useMap()
   useEffect(() => {
     if (points.length > 1) {
-      map.fitBounds(points, { paddingTopLeft: [390, 40], paddingBottomRight: [360, 40] })
+      const padding = window.innerWidth >= 768 ? FIT_PADDING_DESKTOP : FIT_PADDING_MOBILE
+      map.fitBounds(points, padding)
     }
   }, [map, points])
   return null
@@ -196,45 +210,62 @@ export function MapView({
   const selectedRoute = routes.find((route) => route.id === selectedRouteId) ?? routes[0] ?? null
   const selectedPositions = selectedRoute ? toPositions(selectedRoute) : []
   const alternativeRoutes = routes.filter((route) => route.id !== selectedRoute?.id)
-  const routeCues = computeRouteCues(selectedPositions)
-  const routeLabelPosition = selectedPositions[Math.floor(selectedPositions.length / 2)]
 
   return (
     <div className="map-wrapper">
       <MapContainer center={NAGASAKI_CENTER} zoom={14} className="safety-map" zoomControl={false}>
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          subdomains="abcd"
+          maxZoom={20}
+          detectRetina
         />
         <MapClickHandler onPick={onMapPick} />
         {selectedPositions.length > 0 && <FitRoute points={selectedPositions} />}
-        {alternativeRoutes.map((route) => (
-          <Polyline
-            key={route.id}
-            positions={toPositions(route)}
-            pathOptions={{ color: '#94a3b8', weight: 4, opacity: 0.85, dashArray: '2 10' }}
-            eventHandlers={{ click: () => onSelectRoute(route.id) }}
-          />
-        ))}
+        {alternativeRoutes.map((route) => {
+          const positions = toPositions(route)
+          return (
+            <Fragment key={route.id}>
+              <Polyline
+                positions={positions}
+                pathOptions={{
+                  color: '#9aa0a6',
+                  weight: 7,
+                  opacity: 0.9,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+                eventHandlers={{ click: () => onSelectRoute(route.id) }}
+              />
+              <Polyline
+                positions={positions}
+                pathOptions={{
+                  color: '#d2d5d9',
+                  weight: 4,
+                  opacity: 0.95,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+                eventHandlers={{ click: () => onSelectRoute(route.id) }}
+              />
+            </Fragment>
+          )
+        })}
         {selectedPositions.length > 0 && (
           <>
-            <Polyline positions={selectedPositions} pathOptions={{ color: '#0f172a', weight: 17, opacity: 0.18 }} />
-            <Polyline positions={selectedPositions} pathOptions={{ color: '#ffffff', weight: 13, opacity: 0.98 }} />
-            <Polyline positions={selectedPositions} pathOptions={{ color: '#2563eb', weight: 8, opacity: 1 }} />
             <Polyline
               positions={selectedPositions}
-              pathOptions={{ color: '#93c5fd', weight: 2, opacity: 0.9, dashArray: '10 14' }}
+              pathOptions={{ color: '#1557b0', weight: 9, opacity: 1, lineCap: 'round', lineJoin: 'round' }}
             />
-            {routeCues.map((cue, index) => (
-              <Marker key={`route-cue-${index}`} position={cue.position} icon={routeCueIcon(cue.angle)} interactive={false} />
-            ))}
-            {routeLabelPosition && (
-              <Marker position={routeLabelPosition} icon={routeCueIcon(0, '通学ルート')} interactive={false} />
-            )}
+            <Polyline
+              positions={selectedPositions}
+              pathOptions={{ color: '#4285f4', weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round' }}
+            />
           </>
         )}
-        {origin && <Marker position={[origin.lat, origin.lng]} icon={pointIcon('A', '#16a34a')} />}
-        {destination && <Marker position={[destination.lat, destination.lng]} icon={pointIcon('B', '#ef4444')} />}
+        {origin && <Marker position={[origin.lat, origin.lng]} icon={originIcon()} />}
+        {destination && <Marker position={[destination.lat, destination.lng]} icon={destinationIcon()} />}
         {hazards.map((hazard) => (
           <Marker
             key={hazard.id}

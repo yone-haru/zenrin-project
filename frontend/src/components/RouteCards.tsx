@@ -65,20 +65,3 @@ export function RouteCards({ routes, selectedRouteId, onSelect }: RouteCardsProp
     </section>
   )
 }
-
-/** ルート検索中に表示するスケルトン。検索完了までカード枠の骨格だけ見せる。 */
-export function RouteCardsSkeleton() {
-  return (
-    <section className="route-cards-panel route-cards-skeleton" aria-hidden="true">
-      <div className="route-cards-row">
-        {[0, 1].map((index) => (
-          <div key={index} className="route-card-item skeleton">
-            <div className="skeleton-block skeleton-badge" />
-            <div className="skeleton-block skeleton-line" />
-            <div className="skeleton-block skeleton-line short" />
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}

@@ -12,7 +12,6 @@ interface LocateAction {
 
 interface AddressFieldProps {
   label: string
-  dotClassName: string
   value: string
   placeholder: string
   suggestions: GeocodeResult[]
@@ -28,7 +27,6 @@ interface AddressFieldProps {
 
 function AddressField({
   label,
-  dotClassName,
   value,
   placeholder,
   suggestions,
@@ -77,11 +75,9 @@ function AddressField({
 
   return (
     <label className="address-field">
-      <span>
-        {label}
-        {isActivePick && <em className="pick-flag">地図で指定中</em>}
-      </span>
-      <div className={`input-shell ${dotClassName} ${locate ? 'with-locate' : ''}`}>
+      <span className="visually-hidden">{label}</span>
+      {isActivePick && <em className="pick-flag">地図で指定中</em>}
+      <div className={`input-shell ${locate ? 'with-locate' : ''}`}>
         <input
           id={inputId}
           type="text"
@@ -172,7 +168,6 @@ interface SearchPanelProps {
   pickMode: Target
   onSetPickMode: (target: Target) => void
   isReporting: boolean
-  onToggleReporting: () => void
   onUseCurrentLocation: () => void
   locatingCurrentLocation: boolean
   currentLocationError: string | null
@@ -197,88 +192,61 @@ export function SearchPanel({
   pickMode,
   onSetPickMode,
   isReporting,
-  onToggleReporting,
   onUseCurrentLocation,
   locatingCurrentLocation,
   currentLocationError,
 }: SearchPanelProps) {
   return (
-    <section className="search-card">
+    <section className={`search-card ${isReporting ? 'is-disabled' : ''}`}>
       <header className="brand-row">
         <span className="brand-icon">
           <Icon name="shield" />
         </span>
         <h1>通学路あんぜんマップ</h1>
-        <button
-          type="button"
-          className={`report-toggle ${isReporting ? 'is-active' : ''}`}
-          aria-pressed={isReporting}
-          onClick={onToggleReporting}
-        >
-          <Icon name="camera" />
-          危険箇所を報告
-        </button>
       </header>
 
-      <div className={`pick-mode-banner ${isReporting ? 'is-disabled' : ''}`} role="status">
-        <span>地図クリックで指定:</span>
-        <div className="pick-mode-switch">
-          <button
-            type="button"
-            aria-pressed={pickMode === 'origin'}
-            disabled={isReporting}
-            onClick={() => onSetPickMode('origin')}
-          >
-            出発地
-          </button>
-          <button
-            type="button"
-            aria-pressed={pickMode === 'destination'}
-            disabled={isReporting}
-            onClick={() => onSetPickMode('destination')}
-          >
-            目的地
-          </button>
+      <div className="route-field-stack">
+        <div className="route-connector" aria-hidden="true">
+          <span className="connector-dot" />
+          <span className="connector-line" />
+          <span className="connector-pin" />
         </div>
-      </div>
-
-      <div className="field-stack">
-        <AddressField
-          label="出発地"
-          dotClassName="origin-dot"
-          value={originText}
-          placeholder="出発地を入力"
-          suggestions={originSuggestions}
-          loading={originSuggestLoading}
-          onChange={onOriginTextChange}
-          onSelect={onSelectOrigin}
-          onClose={onClearOriginSuggestions}
-          isActivePick={!isReporting && pickMode === 'origin'}
-          onActivatePick={() => onSetPickMode('origin')}
-          pickButtonLabel="地図で出発地を指定"
-          locate={{
-            locating: locatingCurrentLocation,
-            onClick: onUseCurrentLocation,
-            label: '現在地を出発地にする',
-          }}
-        />
+        <div className="route-fields">
+          <AddressField
+            label="出発地"
+            value={originText}
+            placeholder="出発地を入力"
+            suggestions={originSuggestions}
+            loading={originSuggestLoading}
+            onChange={onOriginTextChange}
+            onSelect={onSelectOrigin}
+            onClose={onClearOriginSuggestions}
+            isActivePick={!isReporting && pickMode === 'origin'}
+            onActivatePick={() => onSetPickMode('origin')}
+            pickButtonLabel="地図で出発地を指定"
+            locate={{
+              locating: locatingCurrentLocation,
+              onClick: onUseCurrentLocation,
+              label: '現在地を出発地にする',
+            }}
+          />
+          <AddressField
+            label="目的地"
+            value={destinationText}
+            placeholder="目的地を入力"
+            suggestions={destinationSuggestions}
+            loading={destinationSuggestLoading}
+            onChange={onDestinationTextChange}
+            onSelect={onSelectDestination}
+            onClose={onClearDestinationSuggestions}
+            isActivePick={!isReporting && pickMode === 'destination'}
+            onActivatePick={() => onSetPickMode('destination')}
+            pickButtonLabel="地図で目的地を指定"
+          />
+        </div>
         <button className="swap-button" type="button" aria-label="出発地と目的地を入れ替え" onClick={onSwap}>
           <Icon name="swap" />
         </button>
-        <AddressField
-          label="目的地"
-          dotClassName="destination-pin"
-          value={destinationText}
-          placeholder="目的地を入力"
-          suggestions={destinationSuggestions}
-          loading={destinationSuggestLoading}
-          onChange={onDestinationTextChange}
-          onSelect={onSelectDestination}
-          onClose={onClearDestinationSuggestions}
-          isActivePick={!isReporting && pickMode === 'destination'}
-          onActivatePick={() => onSetPickMode('destination')}
-          pickButtonLabel="地図で目的地を指定"
-        />
       </div>
 
       {currentLocationError && (
@@ -287,16 +255,18 @@ export function SearchPanel({
         </p>
       )}
 
-      <button
-        className="search-button"
-        type="button"
-        onClick={onSearch}
-        disabled={searching}
-        aria-busy={searching}
-      >
-        {searching ? <span className="spinner" aria-hidden="true" /> : <Icon name="search" />}
-        {searching ? '検索中...' : 'ルートを検索'}
-      </button>
+      <div className="search-card-footer">
+        <button
+          className="search-button"
+          type="button"
+          onClick={onSearch}
+          disabled={searching}
+          aria-busy={searching}
+        >
+          {searching ? <span className="spinner" aria-hidden="true" /> : <Icon name="search" />}
+          {searching ? '検索中...' : 'ルートを検索'}
+        </button>
+      </div>
     </section>
   )
 }

@@ -47,6 +47,7 @@ frontend/src/
 - 警察庁 honhyo CSV は CP932・緯度経度がDMS圧縮形式（緯度9桁 DDMMSSsss / 経度10桁 DDDMMSSsss）。十進度への変換は preprocess_accidents.py 経由でのみ行う
 - Windows Git Bash の curl は `-d` の日本語をCP932で送るため、日本語入りJSONボディは400（There was an error parsing the body）になる。サーバは正常。APIの手動テストは Python urllib 等でUTF-8明示で行う
 - eslint-plugin-react-hooks v7 の `set-state-in-effect` ルールは useEffect 本体での直接 setState を禁止する（early-return分岐でも）。setTimeout/Promiseコールバック内に移すこと
+- グローバルCSSの `svg { width/height: ... }` は Leaflet の overlay pane（ルート描画SVG）まで縮めてポリラインが消える。`.leaflet-overlay-pane svg { width: revert; ... }` の除外を必ず残すこと（index.css）
 - 本番Dockerはフロントのnginxが `/api`・`/uploads` をバックエンドへプロキシする同一オリジン構成。`VITE_API_BASE_URL` は空文字でビルドする（`?? 'http://localhost:8000'` は空文字を素通しするのが意図した挙動）
 - ローカル Python は 3.10.0。Dockerfile は 3.12 だがコードは 3.10 互換を維持すること
 - CLAUDE.md・README等ルート直下ファイルをサブエージェントと並行編集しない（過去に git checkout で編集が巻き戻された事故あり。ルート直下は統合担当だけが触る）

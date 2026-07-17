@@ -4,15 +4,13 @@ import type { Report } from './api/reports'
 import { geocode } from './api/route'
 import type { HazardPoint } from './api/route'
 import { AdminPanel } from './components/AdminPanel'
+import { BottomSheet, BottomSheetSkeleton } from './components/BottomSheet'
 import { EmptyStateCard } from './components/EmptyStateCard'
 import { HazardModal } from './components/HazardModal'
-import { HazardPanel } from './components/HazardPanel'
 import type { HazardListItem } from './components/HazardPanel'
 import { Icon } from './components/Icon'
 import { MapView } from './components/MapView'
 import { ReportForm } from './components/ReportForm'
-import { RouteCards, RouteCardsSkeleton } from './components/RouteCards'
-import { RouteSummary } from './components/RouteSummary'
 import { SearchPanel } from './components/SearchPanel'
 import { useGeocode } from './hooks/useGeocode'
 import { useRoute } from './hooks/useRoute'
@@ -36,6 +34,7 @@ function App() {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [modalDetail, setModalDetail] = useState<SelectedDetail | null>(null)
+  const [sheetExpanded, setSheetExpanded] = useState(true)
 
   const [resolving, setResolving] = useState(false)
   const [resolveError, setResolveError] = useState<string | null>(null)
@@ -55,8 +54,13 @@ function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false)
 
   const routeState = useRoute()
-  const originGeocode = useGeocode(originText, { enabled: !isReporting })
-  const destinationGeocode = useGeocode(destinationText, { enabled: !isReporting })
+  // 確定済みの地点と同じテキストのときはサジェストを出さない（検索・候補選択の直後に開き直るのを防ぐ）
+  const originGeocode = useGeocode(originText, {
+    enabled: !isReporting && originText.trim() !== (origin?.address ?? ''),
+  })
+  const destinationGeocode = useGeocode(destinationText, {
+    enabled: !isReporting && destinationText.trim() !== (destination?.address ?? ''),
+  })
 
   const isSearching = resolving || routeState.status === 'loading'
   const searchErrorMessage = resolveError ?? routeState.error
@@ -169,6 +173,7 @@ function App() {
       setSelectedRouteId(firstRoute?.id ?? null)
       setSelectedKey(firstRoute?.hazard_points[0] ? `hazard-${firstRoute.hazard_points[0].id}` : null)
       setModalDetail(null)
+      setSheetExpanded(true)
 
       const params = new URLSearchParams({ from: resolvedOrigin.address, to: resolvedDestination.address })
       window.history.replaceState(null, '', `?${params.toString()}`)
@@ -318,6 +323,11 @@ function App() {
       ? 'ルート上の危険箇所を確認できます'
       : `地図をクリックして地点を指定できます（現在: ${pickMode === 'origin' ? '出発地' : '目的地'}を指定中）`
 
+  // ルートが選択済みの通常時はボトムシートが情報を担うため、ヒントピルは
+  // 報告モード中か、まだルート未選択のときだけ表示する（重なり回避）。
+  const showHintPill = !searchErrorMessage && (isReporting || !selectedRoute)
+  const sheetVisible = !isSearching && !!selectedRoute
+
   return (
     <main className="app-shell">
       <MapView
@@ -365,53 +375,58 @@ function App() {
           pickMode={pickMode}
           onSetPickMode={setPickMode}
           isReporting={isReporting}
-          onToggleReporting={handleToggleReporting}
           onUseCurrentLocation={handleUseCurrentLocation}
           locatingCurrentLocation={locatingCurrentLocation}
           currentLocationError={currentLocationError}
         />
 
-        {isSearching && <RouteCardsSkeleton />}
-
-        {!isSearching && routes.length > 0 && (
-          <>
-            <RouteCards routes={routes} selectedRouteId={selectedRoute?.id ?? null} onSelect={handleSelectRoute} />
-            {selectedRoute && (
-              <RouteSummary
-                distanceM={selectedRoute.distance_m}
-                durationS={selectedRoute.duration_s}
-                hazardCount={selectedRoute.hazard_points.length}
-                grade={selectedRoute.safety_grade}
-                score={selectedRoute.safety_score}
-                onShare={handleShare}
-              />
-            )}
-          </>
-        )}
-
         {!isSearching && routes.length === 0 && !searchErrorMessage && <EmptyStateCard />}
       </div>
 
-      {selectedRoute && (
-        <HazardPanel items={hazardItems} selectedKey={selectedKey} offsetForAdminButton={isAdminMode} />
+      {isSearching && <BottomSheetSkeleton />}
+
+      {sheetVisible && selectedRoute && (
+        <BottomSheet
+          routes={routes}
+          selectedRoute={selectedRoute}
+          selectedRouteId={selectedRoute.id}
+          onSelectRoute={handleSelectRoute}
+          hazardItems={hazardItems}
+          selectedKey={selectedKey}
+          onShare={handleShare}
+          expanded={sheetExpanded}
+          onToggleExpanded={() => setSheetExpanded((value) => !value)}
+        />
       )}
 
-      {isAdminMode && (
+      <div className={`fab-stack ${sheetVisible ? 'above-sheet' : ''}`}>
+        {isAdminMode && (
+          <button
+            type="button"
+            className="fab fab-admin"
+            onClick={() => setShowAdminPanel(true)}
+            aria-label="管理パネルを開く"
+          >
+            <Icon name="lock" />
+          </button>
+        )}
         <button
           type="button"
-          className="admin-toggle-button"
-          onClick={() => setShowAdminPanel(true)}
-          aria-label="管理パネルを開く"
+          className={`fab fab-report ${isReporting ? 'is-active' : ''}`}
+          aria-pressed={isReporting}
+          aria-label={isReporting ? '危険箇所の報告をやめる' : '危険箇所を報告する'}
+          onClick={handleToggleReporting}
         >
-          <Icon name="lock" />
-          管理
+          <Icon name={isReporting ? 'close' : 'camera'} />
         </button>
-      )}
+      </div>
 
-      {!searchErrorMessage && <div className={`hint-pill ${isReporting ? 'is-reporting' : ''}`}>
-        <Icon name={isReporting ? 'camera' : 'pin'} />
-        {hintMessage}
-      </div>}
+      {showHintPill && (
+        <div className={`hint-pill ${isReporting ? 'is-reporting' : ''} ${selectedRoute ? 'above-sheet' : ''}`}>
+          <Icon name={isReporting ? 'camera' : 'pin'} />
+          {hintMessage}
+        </div>
+      )}
 
       {searchErrorMessage && (
         <div className="error-banner" role="alert">
