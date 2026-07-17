@@ -6,6 +6,7 @@ import { formatDistance } from '../utils/format'
 import { STATUS_LABEL } from '../utils/reportStatus'
 import { riskColor, riskSoftColor } from '../utils/riskColor'
 import { Icon } from './Icon'
+import { StreetViewPreview } from './StreetViewPreview'
 
 interface HazardModalProps {
   detail: SelectedDetail
@@ -76,6 +77,10 @@ export function HazardModal({ detail, onClose, onLocate }: HazardModalProps) {
 
         {detail.kind === 'hazard' ? (
           <>
+            <section>
+              <h3>現地の様子</h3>
+              <StreetViewPreview lat={detail.hazard.latitude} lng={detail.hazard.longitude} />
+            </section>
             <section>
               <h3>危険要因</h3>
               <div className="factor-row">
